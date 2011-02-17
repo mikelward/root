@@ -11,14 +11,16 @@ runs
 .I command
 as the root user, but with the current user's environment.
 .P
-It is a designed as a simpler, more predictable alternative to
+It is a designed as a more predictable alternative to
 .BR sudo ,
-which sometimes changes environment variables such as
+which sometimes changes
 .BR PATH .
 .SH OPTIONS
 None.
 .SH ENVIRONMENT
-A user must be in group 0 to run the command, which is usually
+A user must be in group 0 to run the command.
+.P
+Group 0 is usually
 .B root
 or
 .BR wheel .
