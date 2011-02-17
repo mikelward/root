@@ -103,7 +103,7 @@ int setup_groups(uid_t uid)
 
 void usage(void)
 {
-	error("Usage: <program> <program parameter>...\n");
+	error("Usage: <command> [<argument>]...\n");
 }
 
 int main(int argc, char **argv)

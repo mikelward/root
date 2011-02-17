@@ -4,36 +4,33 @@ root \- run a command as the root user
 .SH SYNOPSIS
 root
 .I command
-[
-.I parameter
-]...
+.RI [ argument ]...
 .SH DESCRIPTION
 .B root
-runs the specified
+runs
 .I command
 as the root user, but with the current user's environment.
 .P
-It is similar to
-.B sudo
-but does not change the user's
-.B PATH
-or make any other alterations to the user's environment.
-.P
-This makes it a simpler, more predictable alternative.
+It is a designed as a simpler, more predictable alternative to
+.BR sudo ,
+which sometimes changes environment variables such as
+.BR PATH .
 .SH OPTIONS
 None.
 .SH ENVIRONMENT
-A user must be in group 0 - usually
+A user must be in group 0 to run the command, which is usually
 .B root
 or
-.B wheel
-- to run the command.  
+.BR wheel .
 .P
-Run
+You can run
 .B "root id -gn"
-to confirm the group name.
+to confirm which.
 .SH BUGS
-None known.
+.B root \-\-
+should do the same thing as
+.BR root ,
+but doesn't yet.
 .SH AUTHOR
 Mikel Ward <mikel@mikelward.com>
 .SH "SEE ALSO"
