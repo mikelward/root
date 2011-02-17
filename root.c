@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <grp.h>
 #include <pwd.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,16 +18,26 @@
 
 #define _BSD_SOURCE 1
 
+#define PROGNAME root
+
 const int ROOT_GID=0;
 const int ROOT_UID=0;
 
-int in_root_group()
+void error(const char *format, ...)
+{
+	va_list ap;
+	va_start(ap, format);
+	vfprintf(stderr, format, ap);
+	va_end(ap);
+}
+
+int in_group(int root_gid)
 {
 	gid_t gid;
 
 	gid = getgid();
 
-	if (gid == ROOT_GID) {
+	if (gid == root_gid) {
 		return 1;
 	}
 	else {
@@ -34,7 +45,7 @@ int in_root_group()
 		errno = 0;
 		ngroups_max = sysconf(_SC_NGROUPS_MAX);
 		if (ngroups_max == -1) {
-			fprintf(stderr, "Cannot determine maximum number of groups: %s\n", strerror(errno));
+			error("Cannot determine maximum number of groups: %s\n", strerror(errno));
 			exit(1);
 		}
 		else {
@@ -44,12 +55,12 @@ int in_root_group()
 			errno = 0;
 			ngroups = getgroups(ngroups_max, grouplist);
 			if (ngroups == -1) {
-				fprintf(stderr, "Cannot get group list: %s\n", strerror(errno));
+				error("Cannot get group list: %s\n", strerror(errno));
 				exit(1);
 			}
 
 			for (i = 0; i < ngroups; i++) {
-				if (grouplist[i] == ROOT_GID) {
+				if (grouplist[i] == root_gid) {
 					return 1;
 				}
 			}
@@ -65,7 +76,7 @@ int setup_groups(uid_t uid)
 	errno = 0;
 	ps = getpwuid(uid);
 	if (ps == NULL) {
-		fprintf(stderr, "Cannot get passwd info for uid %d: %s\n", uid, strerror(errno));
+		error("Cannot get passwd info for uid %d: %s\n", uid, strerror(errno));
 		exit(1);
 	}
 	else {
@@ -74,14 +85,14 @@ int setup_groups(uid_t uid)
 		errno = 0;
 		result = setgid(ps->pw_gid);
 		if (result == -1) {
-			fprintf(stderr, "Cannot setgid %d: %s\n", ps->pw_gid, strerror(errno));
+			error("Cannot setgid %d: %s\n", ps->pw_gid, strerror(errno));
 			exit(1);
 		}
 
 		errno = 0;
 		result = initgroups(ps->pw_name, ps->pw_gid);
 		if (result == -1) {
-			fprintf(stderr, "Cannot initgroups for %s: %s\n", ps->pw_name, strerror(errno));
+			error("Cannot initgroups for %s: %s\n", ps->pw_name, strerror(errno));
 			exit(1);
 		}
 		else {
@@ -92,7 +103,7 @@ int setup_groups(uid_t uid)
 
 void usage(void)
 {
-	fprintf(stderr, "Usage: root <program> <program parameter>...\n");
+	error("Usage: <program> <program parameter>...\n");
 }
 
 int main(int argc, char **argv)
@@ -104,7 +115,7 @@ int main(int argc, char **argv)
 		exit(2);
 	}
 
-	is_allowed = in_root_group();
+	is_allowed = in_group(ROOT_GID);
 	if (is_allowed) {
 		int status;
 		const char *file = argv[1];
@@ -114,7 +125,7 @@ int main(int argc, char **argv)
 		status = setuid(ROOT_UID);
 		/*status = setreuid(ROOT_UID, ROOT_UID);*/
 		if (status == -1) {
-			fprintf(stderr, "Cannot setuid %d: %s\n", ROOT_UID, strerror(errno));
+			error("Cannot setuid %d: %s\n", ROOT_UID, strerror(errno));
 			exit(1);
 		}
 
@@ -123,7 +134,7 @@ int main(int argc, char **argv)
 		errno = 0;
 		status = execvp(file, newargv);
 		if (status == -1) {
-			fprintf(stderr, "Cannot exec %s: %s\n", file, strerror(errno));
+			error("Cannot exec %s: %s\n", file, strerror(errno));
 			exit(1);
 		}
 		else {
@@ -131,7 +142,13 @@ int main(int argc, char **argv)
 		}
 	}
 	else {
-		fprintf(stderr, "Permission denied\n");
+		struct group *gp = getgrgid(ROOT_GID);
+		if (gp != NULL && gp->gr_name != NULL) {
+			error("You must be in the %s group to run root\n", gp->gr_name);
+		}
+		else {
+			error("You must be in group 0 to run root\n");
+		}
 		exit(1);
 	}
 }
