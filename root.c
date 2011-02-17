@@ -60,8 +60,9 @@ char *get_unique_path(const char *command, const char *pathenv)
 		char *path = malloc(dirlen+1+commandlen+1);
 		strcpy(path, dir);
 
-		if (strcmp(path, "") == 0 ||
-			strcmp(path, ".") == 0) {
+		if (strcmp(dir, "") == 0 ||
+			strcmp(dir, ".") == 0) {
+			/* XXX test this only if path exists */
 			if (matches == 0) {
 				error("Ignoring current directory in PATH\n");
 				return NULL;
