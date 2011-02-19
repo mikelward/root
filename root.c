@@ -24,7 +24,7 @@
 
 const int ROOT_GID = 0;
 const int ROOT_UID = 0;
-const int verbose = 1;
+const int verbose = 0;
 
 void debug(const char *format, ...)
 {
@@ -58,25 +58,15 @@ char *get_unique_path(const char *command, const char *pathenv)
 
 		int dirlen = strlen(dir);
 		char *path = malloc(dirlen+1+commandlen+1);
-		strcpy(path, dir);
-
-		if (strcmp(dir, "") == 0 ||
-			strcmp(dir, ".") == 0) {
-			/* XXX test this only if path exists */
-			if (matches == 0) {
-				error("Ignoring current directory in PATH\n");
-				return NULL;
-			}
-			else {
-				debug("Skipping %s\n", path);
-				continue;
-			}
+		if (path == NULL) {
+			error("Cannot allocate memory to hold path\n");
+			return NULL;
 		}
+		strcpy(path, dir);
 
 		debug("Looking in %s\n", path);
 
-		/* safe because we handled len==0 above */
-		if (path[dirlen-1] != DIRSEP) {
+		if (strcmp(path, "") != 0 && path[dirlen-1] != DIRSEP) {
 			char dirsepstr[2];
 			sprintf(dirsepstr, "%c", DIRSEP);
 			strcat(path, dirsepstr);
@@ -91,9 +81,25 @@ char *get_unique_path(const char *command, const char *pathenv)
 		strcat(path, command);
 
 		if (access(path, F_OK) == 0) {
+
+			if (matches > 0) {
+				error("%s is %s\n", command, match);
+			}
+
 			match = path;
 			matches++;
 			debug("%s is %s\n", command, path);
+
+			/* don't allow running a command in the current directory
+			 * unless the user used an absolute path */
+			if (strcmp(dir, "") == 0 ||
+				strcmp(dir, ".") == 0) {
+				if (matches == 1) {
+					error("Not running %s: current directory is not allowed in PATH\n", path);
+					return NULL;
+				}
+			}
+
 		}
 		else {
 			free(path);
@@ -108,7 +114,9 @@ char *get_unique_path(const char *command, const char *pathenv)
 		return NULL;
 	}
 	else {
-		error("%s appears in PATH multiple times\n", command);
+		error("%s is %s\n", command, match);
+
+		/*error("%s appears in PATH multiple times\n", command);*/
 		return NULL;
 	}
 }
