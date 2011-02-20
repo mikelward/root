@@ -10,7 +10,9 @@ root: root.c
 	$(CC) $(CFLAGS) -o root root.c
 
 install:
+	install -d $(BINDIR)
 	install -o root -g root -m 4755 root $(BINDIR)
+	install -d $(MANDIR)
 	install -o root -g root -m 644 root.1 $(MANDIR)
 
 clean:
