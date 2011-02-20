@@ -15,23 +15,49 @@ It is a designed as a more predictable alternative to
 .BR sudo ,
 which sometimes changes
 .BR PATH .
-.SH OPTIONS
-None.
-.SH ENVIRONMENT
-A user must be in group 0 to run the command.
+.SS Permission to run root
+A user must be in group 0 to run a command using
+.BR root .
 .P
 Group 0 is usually
 .B root
 or
 .BR wheel .
-.P
 You can run
 .B "root id -gn"
-to confirm which.
-.SH NOTES
-For shell aliases to work as expected, you should add
+to confirm the correct group name.
+.P
+To grant
+.I user
+permission to run
+.BR root ,
+run:
+.P
+.RS
+.B su -
+.RS
+.RE
+.B gpasswd -a
+.I user
+.B $(root id -gn)
+.RE
+.P
+.SS Relative Paths
+As a security precaution,
+.B root
+will not run a command if it is in the current directory, or is found in
+.I PATH
+more than once.
+.P
+Specifying
+.I command
+as an absolute path is recommended.
+.SS "Shell Aliases"
+For shell aliases to work as expected, you should add:
+.P
 .RS
 .B alias root='root '
+.P
 .RE
 to your shell configuration file.
 .SH BUGS
@@ -39,6 +65,9 @@ to your shell configuration file.
 should do the same thing as
 .BR root ,
 but doesn't yet.
+.P
+.SH OPTIONS
+None.
 .SH AUTHOR
 Mikel Ward <mikel@mikelward.com>
 .SH "SEE ALSO"
