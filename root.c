@@ -22,9 +22,26 @@
 #define PATHENVSEP ":"
 #define DIRSEP '/'
 
+/*
+ * exit statuses
+ *
+ * these are set to mimic shell conventions
+ */
+#define ROOT_PERMISSION_DENIED          1
+#define ROOT_INVALID_USAGE              2
+#define ROOT_ENVIRONMENT_ERROR          3
+#define ROOT_PASSWD_CALL_ERROR          4
+#define ROOT_GROUP_CALL_ERROR           5
+#define ROOT_RELATIVE_PATH_DISALLOWED   125
+#define ROOT_ERROR_EXECUTING_COMMAND    126
+#define ROOT_COMMAND_NOT_FOUND          127
+
+/*
+ * definitions that administrators may wish to change
+ */
 const int ROOT_GID = 0;
 const int ROOT_UID = 0;
-const int verbose = 1;
+const int verbose = 0;
 
 void debug(const char *format, ...)
 {
@@ -83,17 +100,6 @@ char *get_command_path(const char *command, const char *pathenv)
 		if (access(path, F_OK) == 0) {
 			debug("%s is %s\n", command, path);
 
-			/*
-			 * don't allow running a command in the current directory
-			 * or any command with a relative path
-			 * (unless user specified a qualified path, in which case
-			 *  we don't enter this function anyway)
-			 */
-			if (path[0] != DIRSEP) {
-				error("Not running %s: found via current or relative directory in PATH\n", path);
-				return NULL;
-			}
-
 			return path;
 		}
 		else {
@@ -101,7 +107,7 @@ char *get_command_path(const char *command, const char *pathenv)
 			path = NULL;
 		}
 	}
-	error("%s not found in PATH\n", command);
+	debug("%s not found in PATH\n", command);
 	return NULL;
 }
 
@@ -120,7 +126,7 @@ int in_group(int root_gid)
 		ngroups_max = sysconf(_SC_NGROUPS_MAX);
 		if (ngroups_max == -1) {
 			error("Cannot determine maximum number of groups: %s\n", strerror(errno));
-			exit(1);
+			exit(ROOT_GROUP_CALL_ERROR);
 		}
 		else {
 			int ngroups;
@@ -130,7 +136,7 @@ int in_group(int root_gid)
 			ngroups = getgroups(ngroups_max, grouplist);
 			if (ngroups == -1) {
 				error("Cannot get group list: %s\n", strerror(errno));
-				exit(1);
+				exit(ROOT_GROUP_CALL_ERROR);
 			}
 
 			for (int i = 0; i < ngroups; i++) {
@@ -162,7 +168,7 @@ int setup_groups(uid_t uid)
 	ps = getpwuid(uid);
 	if (ps == NULL) {
 		error("Cannot get passwd info for uid %d: %s\n", uid, strerror(errno));
-		exit(1);
+		exit(ROOT_PASSWD_CALL_ERROR);
 	}
 	else {
 		int result;
@@ -171,14 +177,14 @@ int setup_groups(uid_t uid)
 		result = setgid(ps->pw_gid);
 		if (result == -1) {
 			error("Cannot setgid %d: %s\n", ps->pw_gid, strerror(errno));
-			exit(1);
+			exit(ROOT_PERMISSION_DENIED);
 		}
 
 		errno = 0;
 		result = initgroups(ps->pw_name, ps->pw_gid);
 		if (result == -1) {
 			error("Cannot initgroups for %s: %s\n", ps->pw_name, strerror(errno));
-			exit(1);
+			exit(ROOT_GROUP_CALL_ERROR);
 		}
 		else {
 			return 0;
@@ -208,20 +214,30 @@ int main(int argc, char **argv)
 		char *command_path = NULL;
 
 		if (is_unqualified_path(command)) {
-			debug("Unqualified path to command, will search PATH\n");
+			debug("Unqualified path, will search PATH\n");
 			const char *pathenv = getenv("PATH");
 			if (pathenv == NULL) {
 				error("Cannot get PATH environment variable\n");
-				exit(1);
+				exit(ROOT_ENVIRONMENT_ERROR);
 			}
 			/*debug("PATH=%s\n", pathenv);*/
 			command_path = get_command_path(command, pathenv);
 			if (command_path == NULL) {
-				/*error("Cannot determine path to %s\n", command);*/
-				exit(1);
+				error("Cannot find %s in PATH\n", command);
+				exit(ROOT_COMMAND_NOT_FOUND);
+			} else if (command_path[0] != DIRSEP) {
+				/*
+				* don't allow running a command in the current directory
+				* or any command with a relative path
+				* (unless user specified a qualified path, in which case
+				*  we don't enter this function anyway)
+				*/
+				error("Not running %s: found via current or relative directory in PATH\n", command_path);
+				exit(ROOT_RELATIVE_PATH_DISALLOWED);
 			}
 		}
 		else {
+			debug("Qualified path, bypassing PATH\n");
 			command_path = strdup(command);
 		}
 
@@ -230,17 +246,21 @@ int main(int argc, char **argv)
 		/*status = setreuid(ROOT_UID, ROOT_UID);*/
 		if (status == -1) {
 			error("Cannot setuid %d: %s\n", ROOT_UID, strerror(errno));
-			exit(1);
+			exit(ROOT_PERMISSION_DENIED);
 		}
 
 		setup_groups(ROOT_UID);
 
 		errno = 0;
 
+		/*
+		 * IMPORTANT
+		 * This must stay as execv, never execvp.
+		 */
 		status = execv(command_path, newargv);
 		if (status == -1) {
 			error("Cannot exec '%s': %s\n", command_path, strerror(errno));
-			exit(1);
+			exit(ROOT_ERROR_EXECUTING_COMMAND);
 		}
 		else {
 			/* execvp does not return on success */
@@ -254,7 +274,7 @@ int main(int argc, char **argv)
 		else {
 			error("You must be in group 0 to run root\n");
 		}
-		exit(1);
+		exit(ROOT_PERMISSION_DENIED);
 	}
 }
 
