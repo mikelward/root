@@ -24,7 +24,7 @@
 
 const int ROOT_GID = 0;
 const int ROOT_UID = 0;
-const int verbose = 0;
+const int verbose = 1;
 
 void debug(const char *format, ...)
 {
@@ -44,9 +44,15 @@ void error(const char *format, ...)
 }
 
 /*
- * caller must free returned path
+ * Return the full path to command found by searching for it in pathenv,
+ * and returning the first match.
+ *
+ * If command is found via a non-absolute path in PATH, return NULL.
+ * This is to prevent security issues arising from "" or "." in PATH.
+ *
+ * If the string returned is not NULL, it must be freed by the caller.
  */
-char *get_unique_path(const char *command, const char *pathenv)
+char *get_command_path(const char *command, const char *pathenv)
 {
 	int matches = 0;
 	int commandlen = strlen(command);
@@ -72,53 +78,31 @@ char *get_unique_path(const char *command, const char *pathenv)
 			strcat(path, dirsepstr);
 			dirlen++;
 		}
-		/*
-		if (commandlen > PATH_MAX - dirlen) {
-			error("Path is too long: %s%s\n", path, command);
-			exit(1);
-		}
-		*/
 		strcat(path, command);
 
 		if (access(path, F_OK) == 0) {
-
-			if (matches > 0) {
-				error("%s is %s\n", command, match);
-			}
-
-			match = path;
-			matches++;
 			debug("%s is %s\n", command, path);
 
-			/* don't allow running a command in the current directory
-			 * unless the user used an absolute path */
-			if (strcmp(dir, "") == 0 ||
-				strcmp(dir, ".") == 0) {
-				if (matches == 1) {
-					error("Not running %s: current directory is not allowed in PATH\n", path);
-					return NULL;
-				}
+			/*
+			 * don't allow running a command in the current directory
+			 * or any command with a relative path
+			 * (unless user specified a qualified path, in which case
+			 *  we don't enter this function anyway)
+			 */
+			if (path[0] != DIRSEP) {
+				error("Not running %s: found via current or relative directory in PATH\n", path);
+				return NULL;
 			}
 
+			return path;
 		}
 		else {
 			free(path);
 			path = NULL;
 		}
 	}
-	if (matches == 1) {
-		return match;
-	}
-	else if (matches == 0) {
-		error("%s not found\n", command);
-		return NULL;
-	}
-	else {
-		error("%s is %s\n", command, match);
-
-		/*error("%s appears in PATH multiple times\n", command);*/
-		return NULL;
-	}
+	error("%s not found in PATH\n", command);
+	return NULL;
 }
 
 int in_group(int root_gid)
@@ -159,7 +143,13 @@ int in_group(int root_gid)
 	}
 }
 
-int is_relative_path(const char *path)
+/**
+ * Returns 0 (true) if path does not contain a slash.
+ * 
+ * This is typically used to determine whether a command
+ * should be looked up in PATH or executed as-is.
+ */
+int is_unqualified_path(const char *path)
 {
 	return strchr(path, DIRSEP) == NULL;
 }
@@ -215,22 +205,24 @@ int main(int argc, char **argv)
 		int status;
 		const char *command = argv[1];
 		char *const *newargv = argv+1;
-		char *unique_command = NULL;
+		char *command_path = NULL;
 
-		if (is_relative_path(command)) {
+		if (is_unqualified_path(command)) {
+			debug("Unqualified path to command, will search PATH\n");
 			const char *pathenv = getenv("PATH");
 			if (pathenv == NULL) {
 				error("Cannot get PATH environment variable\n");
 				exit(1);
 			}
-			unique_command = get_unique_path(command, pathenv);
-			if (unique_command == NULL) {
-				error("Cannot determine path to %s\n", command);
+			/*debug("PATH=%s\n", pathenv);*/
+			command_path = get_command_path(command, pathenv);
+			if (command_path == NULL) {
+				/*error("Cannot determine path to %s\n", command);*/
 				exit(1);
 			}
 		}
 		else {
-			unique_command = strdup(command);
+			command_path = strdup(command);
 		}
 
 		errno = 0;
@@ -245,10 +237,9 @@ int main(int argc, char **argv)
 
 		errno = 0;
 
-		/* TODO confirm newargv is correct */
-		status = execv(unique_command, newargv);
+		status = execv(command_path, newargv);
 		if (status == -1) {
-			error("Cannot exec '%s': %s\n", unique_command, strerror(errno));
+			error("Cannot exec '%s': %s\n", command_path, strerror(errno));
 			exit(1);
 		}
 		else {

@@ -35,23 +35,33 @@ run:
 .P
 .RS
 .B su -
-.RS
 .RE
+.RS
 .B gpasswd -a
 .I user
 .B $(root id -gn)
 .RE
 .P
 .SS Relative Paths
-As a security precaution,
 .B root
-will not run a command if it is in the current directory, or is found in
-.I PATH
-more than once.
+will not run any command found via "", ".", or any other relative directory path appearing in
+.IR PATH .
+.P
+This is a security precaution to prevent running files that could be malicious, for example
+.P
+.RS
+.B root ls
+.RE
+.P
+could run /tmp/ls rather than /bin/ls if somebody created /tmp/ls and it was run in the /tmp directory.
 .P
 Specifying
 .I command
-as an absolute path is recommended.
+as an absolute path is recommended, e.g.
+.P
+.RS
+.B root /bin/ls
+
 .SS "Shell Aliases"
 For shell aliases to work as expected, you should add:
 .P
