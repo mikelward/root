@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <grp.h>
+#include <limits.h>
 #include <pwd.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -18,7 +19,7 @@
 
 #define _BSD_SOURCE 1
 
-#define PROGNAME root
+#define PROGNAME "root"
 #define PATHENVSEP ":"
 #define DIRSEP '/'
 
@@ -45,17 +46,21 @@ const int verbose = 0;
 
 void debug(const char *format, ...)
 {
-	va_list ap;
-	va_start(ap, format);
-	if (verbose)
+	if (verbose) {
+		va_list ap;
+		va_start(ap, format);
+		fprintf(stderr, "%s: ", PROGNAME);
 		vfprintf(stderr, format, ap);
-	va_end(ap);
+		va_end(ap);
+	}
 }
 
 void error(const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
+	/* XXX is there a better way? */
+	fprintf(stderr, "%s: ", PROGNAME);
 	vfprintf(stderr, format, ap);
 	va_end(ap);
 }
@@ -232,7 +237,11 @@ int main(int argc, char **argv)
 				* (unless user specified a qualified path, in which case
 				*  we don't enter this function anyway)
 				*/
-				error("Not running %s: found via current or relative directory in PATH\n", command_path);
+				char *resolved_path = realpath(command_path, NULL);
+				if (resolved_path != NULL)
+					error("Not running %s: Resolves to relative command %s\n", command, resolved_path);
+				else
+					error("Not running %s: Found via current or relative directory in PATH\n", command);
 				exit(ROOT_RELATIVE_PATH_DISALLOWED);
 			}
 		}
