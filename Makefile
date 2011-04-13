@@ -6,8 +6,8 @@ CFLAGS=-std=gnu99 -Wall -Werror
 
 all: root
 
-root: root.c logging.o
-	$(CC) $(CFLAGS) -o root root.c logging.o
+root: root.c user.o path.o logging.o
+	$(CC) $(CFLAGS) -o $@ $^
 
 install:
 	install -d $(BINDIR)

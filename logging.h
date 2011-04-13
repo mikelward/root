@@ -3,6 +3,9 @@
 
 extern int loglevel;
 
+#include <stdarg.h>
+#include <pwd.h>
+
 /*
  * call this before using logging
  */
