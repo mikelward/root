@@ -124,6 +124,10 @@ char *escape_percents(const char *string)
 	char *escaped;
 	size_t length;
 	size_t spos, epos;
+
+    if (string == NULL) {
+        return NULL;
+    }
 	
 	length = strlen(string);
 	escaped = malloc(length * 2 + 1);

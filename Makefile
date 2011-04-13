@@ -4,7 +4,13 @@ MANDIR=$(PREFIX)/share/man/man1
 CC=gcc
 CFLAGS=-std=gnu99 -Wall -Werror
 
-all: root
+all: test root
+
+test: loggingtest
+
+loggingtest: loggingtest.c logging.o
+	$(CC) $(CFLAGS) -o $@ $^
+	./$@
 
 root: root.c user.o path.o logging.o
 	$(CC) $(CFLAGS) -o $@ $^
