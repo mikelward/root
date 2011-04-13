@@ -4,7 +4,10 @@ MANDIR=$(PREFIX)/share/man/man1
 CC=gcc
 CFLAGS=-std=gnu99 -Wall -Werror
 
-all: test root
+all: tags test root
+
+tags: *.c *.h
+	ctags -R
 
 test: loggingtest
 

@@ -44,14 +44,16 @@ int main(int argc, char **argv)
 		char *const *newargv = argv+1;
 		char *command_path = NULL;
 
+		debug("Command to run is %s\n", command);
+
 		if (is_unqualified_path(command)) {
-			debug("Unqualified path, will search PATH");
+			/*debug("Unqualified path, will search PATH");*/
 			const char *pathenv = getenv("PATH");
 			if (pathenv == NULL) {
 				error("Cannot get PATH environment variable");
 				exit(ROOT_ENVIRONMENT_ERROR);
 			}
-			/*debug("PATH=%s", pathenv);*/
+			debug("PATH=%s", pathenv);
 			command_path = get_command_path(command, pathenv);
 			if (command_path == NULL) {
 				error("Cannot find %s in PATH", command);
@@ -72,7 +74,7 @@ int main(int argc, char **argv)
 			}
 		}
 		else {
-			debug("Qualified path, bypassing PATH");
+			/*debug("Qualified path, bypassing PATH");*/
 			command_path = strdup(command);
 		}
 

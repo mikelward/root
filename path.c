@@ -33,7 +33,7 @@ char *get_command_path(const char *command, const char *pathenv)
 		}
 		strcpy(path, dir);
 
-		debug("Looking in %s", path);
+		/*debug("Looking in %s", path);*/
 
 		if (strcmp(path, "") != 0 && path[dirlen-1] != DIRSEP) {
 			char dirsepstr[2];
@@ -44,7 +44,7 @@ char *get_command_path(const char *command, const char *pathenv)
 		strcat(path, command);
 
 		if (access(path, F_OK) == 0) {
-			debug("%s is %s", command, path);
+			/*debug("%s is %s", command, path);*/
 
 			return path;
 		}
