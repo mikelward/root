@@ -6,6 +6,8 @@
  * $Id$
  */
 
+#define _BSD_SOURCE				/* for initgroups() */
+
 #include <sys/types.h>
 #include <errno.h>
 #include <grp.h>
@@ -18,7 +20,7 @@
 #include <syslog.h>
 #include <unistd.h>
 
-#define _BSD_SOURCE 1
+#include "logging.h"
 
 #define PROGNAME "root"
 #define PATHENVSEP ":"
@@ -43,27 +45,10 @@
  */
 const int ROOT_GID = 0;
 const int ROOT_UID = 0;
-const int verbose = 0;
 
 /*
  * function prototypes
  */
-
-/*
- * print messages when various types of events happen.
- * call it like printf(), do not use a trailing newline.
- */
-void debug(const char *format, ...);
-void error(const char *format, ...);
-void info(const char *format, ...);
-
-/*
- * helpers for above
- */
-void writelog(int priority, const char *format, va_list ap);
-void writescreen(int priority, const char *format, va_list ap);
-char *escape_percents(const char *string);
-char *get_username(uid_t uid);
 
 /*
  * helper for main program logic
@@ -74,120 +59,6 @@ int is_unqualified_path(const char *path);
 int setup_groups(uid_t uid);
 
 void usage(void);
-
-void writelog(int priority, const char *format, va_list ap)
-{
-	char *logformat = NULL; size_t logformatmax, logformatlen;
-	char *username = NULL; uid_t ruid;
-
-	ruid = getuid();
-	username = escape_percents(get_username(ruid));
-
-	logformatmax = strlen(username) + strlen(": ") + strlen(format) + 1;
-	logformat = malloc(logformatmax * sizeof *logformat);
-	if (logformat == NULL) {
-		return;
-	}
-
-	/* note no newline: rsyslog doesn't like newlines, vanilla syslog untested */
-	logformatlen = snprintf(logformat, logformatmax, "%s: %s", username, format);
-	/* XXX what if logformatlen > logformatmax? */
-
-	if (logformatlen > 0) {
-		vsyslog(priority, logformat, ap);
-	}
-	else {
-		syslog(LOG_ERR, "Cannot format log message, using default format");
-		vsyslog(priority, format, ap);
-	}
-
-	free(username);
-}
-
-void writescreen(int priority, const char *format, va_list ap)
-{
-	char *printformat = NULL; size_t printformatmax, printformatlen;
-	char *progname = NULL;
-
-	/* only print info and debug messages if verbose flag is set */
-	if (priority >= LOG_INFO && !verbose) {
-		return;
-	}
-
-	progname = escape_percents(PROGNAME);
-
-	printformatmax = strlen(progname) + strlen(": ") + strlen(format) + strlen("\n") + 1;
-	printformat = malloc(printformatmax * sizeof *printformat);
-	if (printformat == NULL) {
-		return;
-	}
-
-	printformatlen = snprintf(printformat, printformatmax, "%s: %s\n", progname, format);
-	/* XXX what if printformatlen > printformatmax? */
-
-	if (printformatlen > 0) {
-		vfprintf(stderr, printformat, ap);
-	}
-	else {
-		syslog(LOG_ERR, "Cannot format screen message, using default format");
-		vfprintf(stderr, format, ap);
-	}
-}
-
-void debug(const char *format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	writelog(LOG_DEBUG, format, ap);
-	writescreen(LOG_DEBUG, format, ap);
-	va_end(ap);
-}
-
-void error(const char *format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	writelog(LOG_ERR, format, ap);
-	writescreen(LOG_ERR, format, ap);
-	va_end(ap);
-}
-
-void info(const char *format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	writelog(LOG_INFO, format, ap);
-	writescreen(LOG_INFO, format, ap);
-	va_end(ap);
-}
-
-/* caller must free returned string */
-char *escape_percents(const char *string)
-{
-	char *escaped;
-	size_t length;
-	size_t spos, epos;
-	
-	length = strlen(string);
-	escaped = malloc(length * 2 + 1);
-
-	if (escaped == NULL) {
-		return NULL;
-	}
-
-	for (spos = 0, epos = 0; string[spos] != '\0'; spos++) {
-		if (string[spos] == '%') {
-			escaped[epos++] = '%';
-			escaped[epos++] = '%';
-		}
-		else {
-			escaped[epos++] = string[spos];
-		}
-	}
-	escaped[epos] = '\0';
-
-	return escaped;
-}
 
 /*
  * Return the full path to command found by searching for it in pathenv,
@@ -200,10 +71,8 @@ char *escape_percents(const char *string)
  */
 char *get_command_path(const char *command, const char *pathenv)
 {
-	int matches = 0;
 	size_t commandlen = strlen(command);
 	char *pathenvcopy = strdup(pathenv);
-	char *match = NULL;
 	for (char *dir = strtok(pathenvcopy, PATHENVSEP);
 	     dir != NULL;
 	     dir = strtok(NULL, PATHENVSEP)) {
@@ -238,16 +107,6 @@ char *get_command_path(const char *command, const char *pathenv)
 	}
 	debug("%s not found in PATH", command);
 	return NULL;
-}
-
-char *get_username(uid_t uid)
-{
-	struct passwd *ppw = getpwuid(uid);
-	if (ppw == NULL) {
-		return "Unknown user";
-	}
-
-	return ppw->pw_name;
 }
 
 int in_group(int root_gid)
@@ -345,7 +204,7 @@ int main(int argc, char **argv)
 		exit(2);
 	}
 
-	openlog(PROGNAME, LOG_CONS|LOG_PID, LOG_AUTHPRIV);
+	initlog(PROGNAME);
 
 	is_allowed = in_group(ROOT_GID);
 	if (is_allowed) {

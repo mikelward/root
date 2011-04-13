@@ -1,13 +1,13 @@
 PREFIX=/usr/local
 BINDIR=$(PREFIX)/bin
 MANDIR=$(PREFIX)/share/man/man1
-CC="gcc"
-CFLAGS="-std=gnu99"
+CC=gcc
+CFLAGS=-std=gnu99 -Wall -Werror
 
 all: root
 
-root: root.c
-	$(CC) $(CFLAGS) -o root root.c
+root: root.c logging.o
+	$(CC) $(CFLAGS) -o root root.c logging.o
 
 install:
 	install -d $(BINDIR)
