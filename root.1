@@ -9,20 +9,22 @@ root
 .B root
 runs
 .I command
-as the root user, but with the current user's environment.
+with root permissions and the current user's environment.
 .P
 It is a designed as a more predictable alternative to
 .BR sudo ,
 which sometimes changes
-.BR PATH .
-.SS Permission to run root
-A user must be in group 0 to run a command using
-.BR root .
-.P
-Group 0 is usually
-.B root
+.B PATH
 or
-.BR wheel .
+.BR HOME .
+.SH OPTIONS
+None.
+.SH "PERMISSION TO RUN ROOT"
+If the user running
+.B root
+is a member of group 0, permission is granted, otherwise permission is denied.
+.P
+Group 0 is usually root or wheel.
 You can run
 .B "root id -gn"
 to confirm the correct group name.
@@ -42,27 +44,40 @@ run:
 .B $(root id -gn)
 .RE
 .P
-.SS Relative Paths
+.SH "RELATIVE PATHS"
 .B root
-will not run any command found via "", ".", or any other relative directory path appearing in
-.IR PATH .
+will not run any command that is in the current directory and was found via
+.BR PATH .
 .P
-This is a security precaution to prevent running files that could be malicious, for example
+This is a security precaution to prevent running the wrong program.
 .P
+For example if you are in
+.B /tmp
+and run
+.B ls
+it could run 
+.B /tmp/ls
+rather than
+.B /bin/ls
+if a malicious user copied a program into the
+.B /tmp
+directory.
+.P
+To be safe, run your command as:
 .RS
-.B root ls
+.IP \(bu 4
+an absolute path
+.RB (e.g. " root /bin/ls" ),
+or
+.IP \(bu 4
+a path containing an explicit directory name
+.RB (e.g. " root ./mycommand" ).
 .RE
 .P
-could run /tmp/ls rather than /bin/ls if somebody created /tmp/ls and it was run in the /tmp directory.
-.P
-Specifying
-.I command
-as an absolute path is recommended, e.g.
-.P
-.RS
-.B root /bin/ls
-
-.SS "Shell Aliases"
+Or you could remove any null ("") or dot (".") entries from
+.BR PATH ,
+which will guarantee you never see this problem again.
+.SH "SHELL ALIASES"
 For shell aliases to work as expected, you should add:
 .P
 .RS
@@ -70,16 +85,39 @@ For shell aliases to work as expected, you should add:
 .P
 .RE
 to your shell configuration file.
-.SH BUGS
-.B root \-\-
-should do the same thing as
-.BR root ,
-but doesn't yet.
-.P
-.SH OPTIONS
-None.
+.SH "EXIT STATUS"
+If
+.IR command
+was successfully started, the exit status will be
+.IR command 's
+exit status.
+
+Otherwise, the exit status will be as follows:
+.TP
+122
+invalid usage (e.g. a command to run was not specified)
+.TP
+123
+permission denied (e.g. user is not in the required group)
+.TP
+124
+system error (e.g. user not found)
+.TP
+125
+relative path disallowed (see the section "RELATIVE PATHS" above)
+.TP
+126
+error running command (e.g. 
+.I command
+is not executable)
+.TP
+127
+command not found
 .SH AUTHOR
 Mikel Ward <mikel@mikelward.com>
 .SH "SEE ALSO"
 .BR sudo (1)
+.BR su (1)
 .BR id (1)
+.BR gpasswd (1)
+.BR bash (1)

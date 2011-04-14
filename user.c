@@ -23,7 +23,7 @@ char *get_group_name(gid_t gid)
     }
 }
 
-int in_group(int root_gid)
+int in_group(gid_t root_gid)
 {
 	gid_t gid;
 
@@ -38,7 +38,7 @@ int in_group(int root_gid)
 		ngroups_max = sysconf(_SC_NGROUPS_MAX);
 		if (ngroups_max == -1) {
 			error("Cannot determine maximum number of groups: %s", strerror(errno));
-			exit(ROOT_GROUP_CALL_ERROR);
+			exit(ROOT_SYSTEM_ERROR);
 		}
 		else {
 			int ngroups;
@@ -48,7 +48,7 @@ int in_group(int root_gid)
 			ngroups = getgroups(ngroups_max, grouplist);
 			if (ngroups == -1) {
 				error("Cannot get group list: %s", strerror(errno));
-				exit(ROOT_GROUP_CALL_ERROR);
+				exit(ROOT_SYSTEM_ERROR);
 			}
 
 			for (int i = 0; i < ngroups; i++) {
@@ -69,7 +69,7 @@ int setup_groups(uid_t uid)
 	ps = getpwuid(uid);
 	if (ps == NULL) {
 		error("Cannot get passwd info for uid %d: %s", uid, strerror(errno));
-		exit(ROOT_PASSWD_CALL_ERROR);
+		exit(ROOT_SYSTEM_ERROR);
 	}
 	else {
 		int result;
@@ -78,19 +78,49 @@ int setup_groups(uid_t uid)
 		result = setgid(ps->pw_gid);
 		if (result == -1) {
 			error("Cannot setgid %d: %s", ps->pw_gid, strerror(errno));
-			exit(ROOT_PERMISSION_DENIED);
+			exit(ROOT_SYSTEM_ERROR);
 		}
 
 		errno = 0;
 		result = initgroups(ps->pw_name, ps->pw_gid);
 		if (result == -1) {
 			error("Cannot initgroups for %s: %s", ps->pw_name, strerror(errno));
-			exit(ROOT_GROUP_CALL_ERROR);
+			exit(ROOT_SYSTEM_ERROR);
 		}
 		else {
 			return 0;
 		}
 	}
+}
+
+/*
+ * become the specified user
+ *
+ * currently the only supported user is root (uid=0)
+ *
+ * returns 1 (true) on success, 0 (false) on failure
+ */
+int become_user(uid_t uid)
+{
+    if (uid != 0) {
+        error("Becoming non-root user has not been tested");
+        return 0;
+    }
+
+    /*
+     * root should be installed setuid root
+     *
+     * before setuid:
+     * ruid = user, euid = root, suid = root
+     * after setuid(0):
+     * ruid = root, euid = root, suid = root
+     */
+    errno = 0;
+    if (setuid(ROOT_UID) == -1) {
+        error("Cannot setuid %u: %s", (unsigned)ROOT_UID, strerror(errno));
+        return 0;
+    }
+    return 1;
 }
 
 /* vim: set ts=4 sw=4 tw=0 et:*/

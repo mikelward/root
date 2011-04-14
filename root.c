@@ -6,6 +6,8 @@
  * $Id$
  */
 
+#define _GNU_SOURCE				/* for getresuid() */
+
 #include <sys/types.h>
 #include <errno.h>
 #include <limits.h>
@@ -32,7 +34,7 @@ int main(int argc, char **argv)
 
 	if (argc < 2) {
 		usage();
-		exit(2);
+		exit(ROOT_INVALID_USAGE);
 	}
 
 	initlog(PROGNAME);
@@ -51,7 +53,7 @@ int main(int argc, char **argv)
 			const char *pathenv = getenv("PATH");
 			if (pathenv == NULL) {
 				error("Cannot get PATH environment variable");
-				exit(ROOT_ENVIRONMENT_ERROR);
+				exit(ROOT_SYSTEM_ERROR);
 			}
 			debug("PATH=%s", pathenv);
 			command_path = get_command_path(command, pathenv);
@@ -67,9 +69,11 @@ int main(int argc, char **argv)
 				*/
 				char *resolved_path = realpath(command_path, NULL);
 				if (resolved_path != NULL)
-					error("Not running %s: Resolves to relative command %s", command, resolved_path);
+					error("You tried to run %s, but this would run %s", command, resolved_path);
 				else
-					error("Not running %s: Found via current or relative directory in PATH", command);
+					error("You tried to run %s, which is a relative path", command, resolved_path);
+				error("Running commands via \"\" or \".\" in PATH is prohibited for security reasons");
+				error("Run man 1 root for the reasons and solutions");
 				exit(ROOT_RELATIVE_PATH_DISALLOWED);
 			}
 		}
@@ -81,20 +85,21 @@ int main(int argc, char **argv)
 		/*
 		 * We have decided what to run,
 		 * log the fact before we actually do anything
+		 *
+		 * Currently we do this before calling setuid(),
+		 * because the log message includes the username,
+		 * and we want to log the calling username, not root
 		 */
 		info("Running %s", command_path);
 
-		errno = 0;
-		status = setuid(ROOT_UID);
-		/*status = setreuid(ROOT_UID, ROOT_UID);*/
-		if (status == -1) {
-			error("Cannot setuid %d: %s", ROOT_UID, strerror(errno));
-			exit(ROOT_PERMISSION_DENIED);
-		}
-
 		setup_groups(ROOT_UID);
 
-		errno = 0;
+		if (!become_user(ROOT_UID)) {
+			error("Cannot become root");
+			/* system error because if this program is installed setuid,
+			 * then become_user should always succeed */
+			exit(ROOT_SYSTEM_ERROR);
+		}
 
 		/*
 		 * IMPORTANT
@@ -106,7 +111,7 @@ int main(int argc, char **argv)
 			exit(ROOT_ERROR_EXECUTING_COMMAND);
 		}
 		else {
-			/* execvp does not return on success */
+			/* execv does not return on success */
 		}
 	}
 	else {

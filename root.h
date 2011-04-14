@@ -15,11 +15,9 @@
  *     maybe it should just be one exit code
  *     so it doesn't mask the called program's exit status
  */
-#define ROOT_PERMISSION_DENIED          1
-#define ROOT_INVALID_USAGE              2
-#define ROOT_ENVIRONMENT_ERROR          3
-#define ROOT_PASSWD_CALL_ERROR          4
-#define ROOT_GROUP_CALL_ERROR           5
+#define ROOT_INVALID_USAGE              122
+#define ROOT_PERMISSION_DENIED          123
+#define ROOT_SYSTEM_ERROR               124
 #define ROOT_RELATIVE_PATH_DISALLOWED   125
 #define ROOT_ERROR_EXECUTING_COMMAND    126
 #define ROOT_COMMAND_NOT_FOUND          127
