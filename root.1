@@ -50,17 +50,14 @@ will not allow running any command that was found via "" or "." in
 .P
 This is a security precaution to prevent running the wrong program.
 .P
-For example if you are in
-.B /tmp
-and run
-.B ls
-it could run 
-.B /tmp/ls
-rather than
-.BR /bin/ls ,
-which is probably not what you intended.
-.P
-Further, it could contain malicous code, which would be even worse if run with root permissions.
+For example, if your
+.B PATH
+is ".:/usr/bin:/bin", your current directory is
+.BR /tmp ,
+and an attacker has created a program called
+.BR /tmp/ls ,
+you will not be allowed to run
+.BR "root ls" .
 .P
 To be safe, run your command as:
 .RS
@@ -73,7 +70,7 @@ a path containing an explicit directory name
 .RB (e.g. " root ./mycommand" ).
 .RE
 .P
-Or remove null ("") or dot (".") entries from
+Or remove "" and "." entries from
 .BR PATH .
 .SH "SHELL ALIASES"
 To allow running shell aliases via
