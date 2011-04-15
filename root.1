@@ -9,7 +9,7 @@ root
 .B root
 runs
 .I command
-with root permissions and the current user's environment.
+with root permissions in the current user's environment.
 .P
 It is a designed as a more predictable alternative to
 .BR sudo ,
@@ -27,7 +27,7 @@ is a member of group 0, permission is granted, otherwise permission is denied.
 Group 0 is usually root or wheel.
 You can run
 .B "root id -gn"
-to confirm the correct group name.
+to confirm which.
 .P
 To grant
 .I user
@@ -39,14 +39,13 @@ run:
 .B su -
 .RE
 .RS
-.B gpasswd -a
+.B usermod -a -G 0
 .I user
-.B $(root id -gn)
 .RE
 .P
 .SH "RELATIVE PATHS"
 .B root
-will not run any command that is in the current directory and was found via
+will not allow running any command that was found via "" or "." in
 .BR PATH .
 .P
 This is a security precaution to prevent running the wrong program.
@@ -58,10 +57,10 @@ and run
 it could run 
 .B /tmp/ls
 rather than
-.B /bin/ls
-if a malicious user copied a program into the
-.B /tmp
-directory.
+.BR /bin/ls ,
+which is probably not what you intended.
+.P
+Further, it could contain malicous code, which would be even worse if run with root permissions.
 .P
 To be safe, run your command as:
 .RS
@@ -74,11 +73,12 @@ a path containing an explicit directory name
 .RB (e.g. " root ./mycommand" ).
 .RE
 .P
-Or you could remove any null ("") or dot (".") entries from
-.BR PATH ,
-which will guarantee you never see this problem again.
+Or remove null ("") or dot (".") entries from
+.BR PATH .
 .SH "SHELL ALIASES"
-For shell aliases to work as expected, you should add:
+To allow running shell aliases via
+.BR root ,
+you should add
 .P
 .RS
 .B alias root='root '
@@ -120,4 +120,6 @@ Mikel Ward <mikel@mikelward.com>
 .BR su (1)
 .BR id (1)
 .BR gpasswd (1)
+.BR usermod (1)
 .BR bash (1)
+.BR sh (1)
