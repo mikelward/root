@@ -1,4 +1,4 @@
-#define _BSD_SOURCE				/* for initgroups() */
+#define _BSD_SOURCE             /* for initgroups() */
 
 #include <sys/types.h>
 #include <errno.h>
@@ -25,72 +25,72 @@ char *get_group_name(gid_t gid)
 
 int in_group(gid_t root_gid)
 {
-	gid_t gid;
+    gid_t gid;
 
-	gid = getgid();
+    gid = getgid();
 
-	if (gid == root_gid) {
-		return 1;
-	}
-	else {
-		long ngroups_max;
-		errno = 0;
-		ngroups_max = sysconf(_SC_NGROUPS_MAX);
-		if (ngroups_max == -1) {
-			error("Cannot determine maximum number of groups: %s", strerror(errno));
-			exit(ROOT_SYSTEM_ERROR);
-		}
-		else {
-			int ngroups;
-			gid_t grouplist[ngroups_max];
+    if (gid == root_gid) {
+        return 1;
+    }
+    else {
+        long ngroups_max;
+        errno = 0;
+        ngroups_max = sysconf(_SC_NGROUPS_MAX);
+        if (ngroups_max == -1) {
+            error("Cannot determine maximum number of groups: %s", strerror(errno));
+            exit(ROOT_SYSTEM_ERROR);
+        }
+        else {
+            int ngroups;
+            gid_t grouplist[ngroups_max];
 
-			errno = 0;
-			ngroups = getgroups(ngroups_max, grouplist);
-			if (ngroups == -1) {
-				error("Cannot get group list: %s", strerror(errno));
-				exit(ROOT_SYSTEM_ERROR);
-			}
+            errno = 0;
+            ngroups = getgroups(ngroups_max, grouplist);
+            if (ngroups == -1) {
+                error("Cannot get group list: %s", strerror(errno));
+                exit(ROOT_SYSTEM_ERROR);
+            }
 
-			for (int i = 0; i < ngroups; i++) {
-				if (grouplist[i] == root_gid) {
-					return 1;
-				}
-			}
-			return 0;
-		}
-	}
+            for (int i = 0; i < ngroups; i++) {
+                if (grouplist[i] == root_gid) {
+                    return 1;
+                }
+            }
+            return 0;
+        }
+    }
 }
 
 int setup_groups(uid_t uid)
 {
-	struct passwd *ps;
+    struct passwd *ps;
 
-	errno = 0;
-	ps = getpwuid(uid);
-	if (ps == NULL) {
-		error("Cannot get passwd info for uid %d: %s", uid, strerror(errno));
-		exit(ROOT_SYSTEM_ERROR);
-	}
-	else {
-		int result;
+    errno = 0;
+    ps = getpwuid(uid);
+    if (ps == NULL) {
+        error("Cannot get passwd info for uid %d: %s", uid, strerror(errno));
+        exit(ROOT_SYSTEM_ERROR);
+    }
+    else {
+        int result;
 
-		errno = 0;
-		result = setgid(ps->pw_gid);
-		if (result == -1) {
-			error("Cannot setgid %d: %s", ps->pw_gid, strerror(errno));
-			exit(ROOT_SYSTEM_ERROR);
-		}
+        errno = 0;
+        result = setgid(ps->pw_gid);
+        if (result == -1) {
+            error("Cannot setgid %d: %s", ps->pw_gid, strerror(errno));
+            exit(ROOT_SYSTEM_ERROR);
+        }
 
-		errno = 0;
-		result = initgroups(ps->pw_name, ps->pw_gid);
-		if (result == -1) {
-			error("Cannot initgroups for %s: %s", ps->pw_name, strerror(errno));
-			exit(ROOT_SYSTEM_ERROR);
-		}
-		else {
-			return 0;
-		}
-	}
+        errno = 0;
+        result = initgroups(ps->pw_name, ps->pw_gid);
+        if (result == -1) {
+            error("Cannot initgroups for %s: %s", ps->pw_name, strerror(errno));
+            exit(ROOT_SYSTEM_ERROR);
+        }
+        else {
+            return 0;
+        }
+    }
 }
 
 /*

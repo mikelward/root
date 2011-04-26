@@ -19,42 +19,42 @@
  */
 char *get_command_path(const char *command, const char *pathenv)
 {
-	size_t commandlen = strlen(command);
-	char *pathenvcopy = strdup(pathenv);
-	for (char *dir = strtok(pathenvcopy, PATHENVSEP);
-	     dir != NULL;
-	     dir = strtok(NULL, PATHENVSEP)) {
+    size_t commandlen = strlen(command);
+    char *pathenvcopy = strdup(pathenv);
+    for (char *dir = strtok(pathenvcopy, PATHENVSEP);
+         dir != NULL;
+         dir = strtok(NULL, PATHENVSEP)) {
 
-		int dirlen = strlen(dir);
-		char *path = malloc(dirlen+1+commandlen+1);
-		if (path == NULL) {
-			error("Cannot allocate memory to hold path");
-			return NULL;
-		}
-		strcpy(path, dir);
+        int dirlen = strlen(dir);
+        char *path = malloc(dirlen+1+commandlen+1);
+        if (path == NULL) {
+            error("Cannot allocate memory to hold path");
+            return NULL;
+        }
+        strcpy(path, dir);
 
-		/*debug("Looking in %s", path);*/
+        /*debug("Looking in %s", path);*/
 
-		if (strcmp(path, "") != 0 && path[dirlen-1] != DIRSEP) {
-			char dirsepstr[2];
-			sprintf(dirsepstr, "%c", DIRSEP);
-			strcat(path, dirsepstr);
-			dirlen++;
-		}
-		strcat(path, command);
+        if (strcmp(path, "") != 0 && path[dirlen-1] != DIRSEP) {
+            char dirsepstr[2];
+            sprintf(dirsepstr, "%c", DIRSEP);
+            strcat(path, dirsepstr);
+            dirlen++;
+        }
+        strcat(path, command);
 
-		if (access(path, F_OK) == 0) {
-			/*debug("%s is %s", command, path);*/
+        if (access(path, F_OK) == 0) {
+            /*debug("%s is %s", command, path);*/
 
-			return path;
-		}
-		else {
-			free(path);
-			path = NULL;
-		}
-	}
-	debug("%s not found in PATH", command);
-	return NULL;
+            return path;
+        }
+        else {
+            free(path);
+            path = NULL;
+        }
+    }
+    debug("%s not found in PATH", command);
+    return NULL;
 }
 
 /**
@@ -65,7 +65,7 @@ char *get_command_path(const char *command, const char *pathenv)
  */
 int is_unqualified_path(const char *path)
 {
-	return strchr(path, DIRSEP) == NULL;
+    return strchr(path, DIRSEP) == NULL;
 }
 
 /* vim: set ts=4 sw=4 tw=0 et:*/
