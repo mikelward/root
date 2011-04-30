@@ -67,10 +67,12 @@ int main(int argc, char **argv)
                  *  we don't enter this function anyway)
                  */
                 char *resolved_path = realpath(command_path, NULL);
-                if (resolved_path != NULL)
+                if (resolved_path != NULL) {
                     error("You tried to run %s, but this would run %s", command, resolved_path);
-                else
+                }
+                else {
                     error("You tried to run %s, which is a relative path", command, resolved_path);
+                }
                 error("Running commands via \"\" or \".\" in PATH is prohibited for security reasons");
                 error("Run man 1 root for the reasons and solutions");
                 exit(ROOT_RELATIVE_PATH_DISALLOWED);
