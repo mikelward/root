@@ -2,11 +2,9 @@
  * root
  *
  * simple reimplementation of sudo
- *
- * $Id$
  */
 
-#define _GNU_SOURCE             /* for getresuid() */
+#define _BSD_SOURCE             /* strdup(), initgroups(), etc. */
 
 #include <sys/types.h>
 #include <errno.h>
