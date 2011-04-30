@@ -4,7 +4,7 @@ root
 `root` lets you run commands as the root user.
 
 It is designed as a simpler version of `sudo` that doesn't require
-any configuration and doesn't mess with your environment variables.
+complex configuration and doesn't mess with your environment variables.
 
 Installation
 ------------
@@ -18,7 +18,7 @@ Any user in group 0 (usually called `wheel` or `root`) is allowed
 to use `root`.
 
 Use your system's tools such as `gpasswd` and `usermod` to make
-any necessary changes.
+any necessary changes, e.g. `usermod -a -G 0 USERNAME`.
 
 Usage
 -----
