@@ -59,13 +59,32 @@ char *get_command_path(const char *command, const char *pathenv)
 
 /**
  * Returns 0 (true) if path does not contain a slash.
- * 
+ *
  * This is typically used to determine whether a command
  * should be looked up in PATH or executed as-is.
  */
 int is_unqualified_path(const char *path)
 {
-    return strchr(path, DIRSEP) == NULL;
+    return !is_qualified_path(path);
+}
+
+/**
+ * Returns 0 (true) if path contains a slash.
+ *
+ * This is typically used to determine whether a command
+ * should be looked up in PATH or executed as-is.
+ */
+int is_qualified_path(const char *path)
+{
+    return path && strchr(path, DIRSEP) != NULL;
+}
+
+/**
+ * Returns 0 (true) if path is an unambigious path starting at the root.
+ */
+int is_absolute_path(const char *path)
+{
+    return path && path[0] == DIRSEP;
 }
 
 /* vim: set ts=4 sw=4 tw=0 et:*/

@@ -5,6 +5,8 @@
 #define DIRSEP '/'
 
 char *get_command_path(const char *command, const char *pathenv);
+int is_absolute_path(const char *path);
+int is_qualified_path(const char *path);
 int is_unqualified_path(const char *path);
 
 #endif

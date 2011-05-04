@@ -68,6 +68,11 @@ int main(int argc, char **argv)
     char *const *newargv = argv;
     char *command_path = NULL;
 
+    if (command == NULL) {
+        error("Command is NULL\n");
+        exit(ROOT_INVALID_USAGE);
+    }
+
     debug("Command to run is %s\n", command);
 
     /*
@@ -78,7 +83,11 @@ int main(int argc, char **argv)
      * Allowed only if the first matching entry in PATH starts with a "/":
      * - root command
      */
-    if (is_unqualified_path(command)) {
+    if (is_absolute_path(command) || is_qualified_path(command)) {
+        /*debug("Qualified path, bypassing PATH");*/
+        command_path = strdup(command);
+    }
+    else {
         /*debug("Unqualified path, will search PATH");*/
         const char *pathenv = getenv("PATH");
         if (pathenv == NULL) {
@@ -91,12 +100,10 @@ int main(int argc, char **argv)
             error("Cannot find %s in PATH", command);
             exit(ROOT_COMMAND_NOT_FOUND);
         }
-        else if (command_path[0] != DIRSEP) {
+        else if (!is_absolute_path(command_path)) {
             /*
-             * don't allow running a command in the current directory
-             * or any command with a relative path
-             * (unless user specified a qualified path, in which case
-             *  we don't enter this function anyway)
+             * we found a relative path via PATH
+             * this is potentially unsafe, so don't allow it
              */
             char *resolved_path = realpath(command_path, NULL);
             if (resolved_path != NULL) {
@@ -109,10 +116,6 @@ int main(int argc, char **argv)
             error("Run man 1 root for the reasons and solutions");
             exit(ROOT_RELATIVE_PATH_DISALLOWED);
         }
-    }
-    else {
-        /*debug("Qualified path, bypassing PATH");*/
-        command_path = strdup(command);
     }
 
     /*
