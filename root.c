@@ -13,6 +13,7 @@
  *  - unqualified path  path to a file not containing a /
  */
 
+#define _GNU_SOURCE             /* for realpath(..., NULL) */
 #define _BSD_SOURCE             /* strdup(), initgroups(), etc. */
 
 #include <sys/types.h>
@@ -68,7 +69,7 @@ int main(int argc, char **argv)
     char *const *newargv = argv;
     char *command_path = NULL;
 
-    if (command == NULL) {
+    if (command == NULL || *command == '\0') {
         error("Command is NULL\n");
         exit(ROOT_INVALID_USAGE);
     }
@@ -131,6 +132,10 @@ int main(int argc, char **argv)
      * Currently we do this before calling setuid(),
      * because the log message includes the username,
      * and we want to log the calling username, not root
+     *
+     * XXX log the command arguments too?
+     * XXX how to escape control characters,
+     *     e.g. what if command name contains backspaces?
      */
     info("Running %s", command_path);
 
