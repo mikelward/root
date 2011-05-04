@@ -13,6 +13,9 @@
  *  - unqualified path  path to a file not containing a /
  */
 
+/*
+ * XXX realpath(..., NULL) requires _GNU_SOURCE or _XOPEN_SOURCE 700
+ */
 #define _GNU_SOURCE             /* for realpath(..., NULL) */
 #define _BSD_SOURCE             /* strdup(), initgroups(), etc. */
 
@@ -60,14 +63,17 @@ int main(int argc, char **argv)
     argv++, argc--;
 
     /*
-     * first argument is the command to run,
-     * which we will do some checks on first;
-     * all arguments (including the first)
-     * will be passed verbatim to exec as argv
+     * The first argument (argv[0]) is the command to run.
+     * We will do some checks and processing on it.
+     * It will be the first argument to execv(), which tells
+     * the system which file to execute.
+     *
+     * All arguments, including the first, (argv) will be
+     * passed verbatim as the second argument to execv().
      */
     const char *command = argv[0];
     char *const *newargv = argv;
-    char *command_path = NULL;
+    char *absolute_command = NULL;
 
     if (command == NULL || *command == '\0') {
         error("Command is NULL\n");
@@ -76,54 +82,74 @@ int main(int argc, char **argv)
 
     debug("Command to run is %s\n", command);
 
-    /*
-     * Allowed:
-     * - root /path/to/command
-     * - root ./command
-     *
-     * Allowed only if the first matching entry in PATH starts with a "/":
-     * - root command
-     */
-    if (is_absolute_path(command) || is_qualified_path(command)) {
-        /*debug("Qualified path, bypassing PATH");*/
-        command_path = strdup(command);
+    if (is_qualified_path(command)) {
+        /*
+         * Command contained a slash, e.g.
+         *  - root /path/to/command
+         *  - root ./command
+         *
+         * skip the PATH tests
+         */
+
+        /*
+         * Determine the canonical, absolute path to command
+         * for passing to execv().
+         */
+        absolute_command = realpath(command, NULL);
+        if (absolute_command == NULL) {
+            error("Cannot determine real path to %s\n", command);
+            exit(ROOT_COMMAND_NOT_FOUND);
+        }
     }
     else {
-        /*debug("Unqualified path, will search PATH");*/
+        /*
+         * Command did not contain a slash.
+         * Search for it in PATH...
+         */
         const char *pathenv = getenv("PATH");
         if (pathenv == NULL) {
             error("Cannot get PATH environment variable");
             exit(ROOT_SYSTEM_ERROR);
         }
-        debug("PATH=%s", pathenv);
-        command_path = get_command_path(command, pathenv);
-        if (command_path == NULL) {
+        debug("Searching for command in PATH=%s", pathenv);
+        char *qualified_command = get_command_path(command, pathenv);
+        if (qualified_command == NULL) {
             error("Cannot find %s in PATH", command);
             exit(ROOT_COMMAND_NOT_FOUND);
         }
-        else if (!is_absolute_path(command_path)) {
+
+        /*
+         * Determine the canonical, absolute path to command
+         * for passing to execv().
+         *
+         * Logically, this belongs at the bottom of this else branch,
+         * but we do it early so that if we prohibit running the command,
+         * we can tell the user what command really would have been run
+         * (e.g. so we can print "/tmp/ls" rather than "./ls").
+         */
+        absolute_command = realpath(qualified_command, NULL);
+        if (absolute_command == NULL) {
+            error("Cannot determine real path to %s\n", qualified_command);
+            exit(ROOT_COMMAND_NOT_FOUND);
+        }
+
+        if (!is_absolute_path(qualified_command)) {
             /*
-             * we found a relative path via PATH
-             * this is potentially unsafe, so don't allow it
+             * We found a relative command via PATH.
+             * This means ".", "", or a relative directory was listed in PATH
+             * and that directory held the first match for "command".
+             *
+             * This could result in running a command other than the
+             * user expected, which is potentially unsafe, so don't allow it.
              */
-            char *resolved_path = realpath(command_path, NULL);
-            if (resolved_path != NULL) {
-                error("You tried to run %s, but this would run %s", command, resolved_path);
-            }
-            else {
-                error("You tried to run %s, which is a relative path", command, resolved_path);
-            }
+            error("You tried to run %s, but this would run %s", command, absolute_command);
             error("Running commands via \"\" or \".\" in PATH is prohibited for security reasons");
             error("Run man 1 root for the reasons and solutions");
             exit(ROOT_RELATIVE_PATH_DISALLOWED);
         }
-    }
 
-    /*
-     * TODO
-     * consider converting command_path into an absolute path
-     * so that any log message mentioning the command is unambiguous
-     */
+        free(qualified_command);
+    }
 
     /*
      * We have decided what to run,
@@ -137,7 +163,7 @@ int main(int argc, char **argv)
      * XXX how to escape control characters,
      *     e.g. what if command name contains backspaces?
      */
-    info("Running %s", command_path);
+    info("Running %s", absolute_command);
 
     /*
      * XXX
@@ -156,8 +182,8 @@ int main(int argc, char **argv)
      * IMPORTANT
      * This must stay as execv, never execvp.
      */
-    if (execv(command_path, newargv) == -1) {
-        error("Cannot exec '%s': %s", command_path, strerror(errno));
+    if (execv(absolute_command, newargv) == -1) {
+        error("Cannot exec '%s': %s", absolute_command, strerror(errno));
         exit(ROOT_ERROR_EXECUTING_COMMAND);
     }
     /* execv does not return on success */

@@ -21,6 +21,11 @@ char *get_command_path(const char *command, const char *pathenv)
 {
     size_t commandlen = strlen(command);
     char *pathenvcopy = strdup(pathenv);
+    if (pathenvcopy == NULL) {
+        error("Cannot allocate memory to hold pathenv\n");
+        return NULL;
+    }
+
     for (char *dir = strtok(pathenvcopy, PATHENVSEP);
          dir != NULL;
          dir = strtok(NULL, PATHENVSEP)) {
@@ -46,6 +51,7 @@ char *get_command_path(const char *command, const char *pathenv)
         if (access(path, F_OK) == 0) {
             /*debug("%s is %s", command, path);*/
 
+            free(pathenvcopy);
             return path;
         }
         else {
@@ -53,7 +59,11 @@ char *get_command_path(const char *command, const char *pathenv)
             path = NULL;
         }
     }
+
     debug("%s not found in PATH", command);
+    if (pathenvcopy != NULL) {
+        free(pathenvcopy);
+    }
     return NULL;
 }
 
