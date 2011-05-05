@@ -6,75 +6,104 @@
  * Mikel Ward <mikel@mikelward.com>
  */
 
-/*
- * terminology:
- *  - absolute path     path to a file starting with /
- *  - qualified path    path to a file containing a /
- *  - unqualified path  path to a file not containing a /
- */
-
-/*
- * XXX realpath(..., NULL) requires _GNU_SOURCE or _XOPEN_SOURCE 700
- */
-#define _GNU_SOURCE             /* for realpath(..., NULL) */
-#define _BSD_SOURCE             /* strdup(), initgroups(), etc. */
-
-#include <sys/types.h>
-#include <errno.h>
-#include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
 #include "root.h"
-#include "user.h"
-#include "logging.h"
-#include "path.h"
 
+void setup_logging();
+void process_args(int argc, char * const *argv,
+                  char **absolute_commandp, char * const **argsp);
+void ensure_permitted(void);
+void become_root(void);
+void run_command(const char *absolute_command, char * const *args);
 void usage(void);
 
-void usage(void)
+int main(int argc, char * const *argv)
 {
-    fprintf(stderr, "Usage: root <command> [<argument>]...\n");
+    char *absolute_command = NULL;
+    char * const *args = NULL;
+
+    setup_logging();
+
+    process_args(argc, argv, &absolute_command, &args);
+
+    ensure_permitted();
+
+    /*
+     * Do this before become_root so we can log the calling username/uid.
+     *
+     * XXX log the command arguments too?
+     */
+    info("Running %s", absolute_command);
+
+    become_root();
+
+    run_command(absolute_command, args);
+
+    /* NOT REACHED */
+    return 0;
 }
 
-int main(int argc, char **argv)
+void setup_logging()
+{
+    initlog(PROGNAME);
+}
+
+/**
+ * Process command line arguments and determine the command to run.
+ *
+ * This is the most complicated part, but the concept is simple.
+ *
+ * We read the command line arguments to figure out what command to run.
+ *
+ * The first argument (argv[0] -> *absolute_commandp) is the command.
+ *
+ * Any command of the form "/path/to/command" is allowed.
+ * Any command of the form "./command" is allowed.
+ * Any command of the form "command", is only allowed if it is safe.
+ *
+ * A safe command is one that forms an absolute path after being
+ * looked up in PATH, e.g. "ls" if the first match in PATH is "/bin".
+ * An unsafe command is one that forms a relative path after being
+ * looked up in PATH, e.g. "ls" if the first match in PATH is "./ls"
+ * (where . is the current directory).
+ *
+ * We could just check for a command starting with a dot, but I also
+ * want to handle the case where somebody puts something strange like
+ * "bin" in PATH (as opposed to "/bin"), which could also result in
+ * running an unintended command.  Ensuring the resultant path is
+ * absolute handles both cases.
+ *
+ * The remaining arguments (argv -> *argsp)
+ * (including argv[0] due to C/UNIX conventions)
+ * are the arguments that will be passed unchanged to execv().
+ *
+ * Terminology:
+ *  - absolute path     path starting with /     (e.g. /path/to/command)
+ *  - qualified path    path containing a /      (e.g. ./command)
+ *  - unqualified path  path not containing a /  (e.g. command)
+ */
+void process_args(int argc, char * const *argv,
+                  char **absolute_commandp, char * const **argsp)
 {
     if (argc < 2) {
         usage();
         exit(ROOT_INVALID_USAGE);
     }
 
-    initlog(PROGNAME);
+    if (absolute_commandp == NULL) {
+        error("process_args: absolute_commandp is NULL\n");
+        exit(ROOT_PROGRAMMER_ERROR);
+    }
 
-    if (!in_group(ROOT_GID)) {
-        const char *groupname = get_group_name(ROOT_GID);
-        if (groupname != NULL) {
-            error("You must be in the %s group to run root", groupname);
-        }
-        else {
-            error("You must be in group %u to run root", (unsigned)ROOT_GID);
-        }
-        exit(ROOT_PERMISSION_DENIED);
+    if (argsp == NULL) {
+        error("process_args: argsp is NULL\n");
+        exit(ROOT_PROGRAMMER_ERROR);
     }
 
     /* skip over our own program name */
     argv++, argc--;
 
-    /*
-     * The first argument (argv[0]) is the command to run.
-     * We will do some checks and processing on it.
-     * It will be the first argument to execv(), which tells
-     * the system which file to execute.
-     *
-     * All arguments, including the first, (argv) will be
-     * passed verbatim as the second argument to execv().
-     */
-    const char *command = argv[0];
-    char *const *newargv = argv;
     char *absolute_command = NULL;
-
+    const char *command = argv[0];
     if (command == NULL || *command == '\0') {
         error("Command is NULL\n");
         exit(ROOT_INVALID_USAGE);
@@ -82,14 +111,10 @@ int main(int argc, char **argv)
 
     debug("Command to run is %s\n", command);
 
+    /*
+     * If the command contains a slash, it is always allowed.
+     */
     if (is_qualified_path(command)) {
-        /*
-         * Command contained a slash, e.g.
-         *  - root /path/to/command
-         *  - root ./command
-         *
-         * skip the PATH tests
-         */
 
         /*
          * Determine the canonical, absolute path to command
@@ -101,11 +126,10 @@ int main(int argc, char **argv)
             exit(ROOT_COMMAND_NOT_FOUND);
         }
     }
+    /*
+     * If the command does not contain a slash, search for it in PATH.
+     */
     else {
-        /*
-         * Command did not contain a slash.
-         * Search for it in PATH...
-         */
         const char *pathenv = getenv("PATH");
         if (pathenv == NULL) {
             error("Cannot get PATH environment variable");
@@ -133,15 +157,12 @@ int main(int argc, char **argv)
             exit(ROOT_COMMAND_NOT_FOUND);
         }
 
+        /*
+         * Ensure the path is an absolute PATH to prevent running
+         * a malicious program installed by a rogue user in the current
+         * directory (or any relative entry in PATH).
+         */
         if (!is_absolute_path(qualified_command)) {
-            /*
-             * We found a relative command via PATH.
-             * This means ".", "", or a relative directory was listed in PATH
-             * and that directory held the first match for "command".
-             *
-             * This could result in running a command other than the
-             * user expected, which is potentially unsafe, so don't allow it.
-             */
             error("You tried to run %s, but this would run %s", command, absolute_command);
             error("Running commands via \"\" or \".\" in PATH is prohibited for security reasons");
             error("Run man 1 root for the reasons and solutions");
@@ -151,20 +172,26 @@ int main(int argc, char **argv)
         free(qualified_command);
     }
 
-    /*
-     * We have decided what to run,
-     * log the fact before we actually do anything
-     *
-     * Currently we do this before calling setuid(),
-     * because the log message includes the username,
-     * and we want to log the calling username, not root
-     *
-     * XXX log the command arguments too?
-     * XXX how to escape control characters,
-     *     e.g. what if command name contains backspaces?
-     */
-    info("Running %s", absolute_command);
+    *absolute_commandp = absolute_command;
+    *argsp = argv;
+}
 
+void ensure_permitted(void)
+{
+    if (!in_group(ROOT_GID)) {
+        const char *groupname = get_group_name(ROOT_GID);
+        if (groupname != NULL) {
+            error("You must be in the %s group to run root", groupname);
+        }
+        else {
+            error("You must be in group %u to run root", (unsigned)ROOT_GID);
+        }
+        exit(ROOT_PERMISSION_DENIED);
+    }
+}
+
+void become_root(void)
+{
     /*
      * XXX
      * should setup_groups be part of become_user() ?
@@ -177,16 +204,24 @@ int main(int argc, char **argv)
             * then become_user should always succeed */
         exit(ROOT_SYSTEM_ERROR);
     }
+}
 
+void run_command(const char *absolute_command, char * const *args)
+{
     /*
      * IMPORTANT
      * This must stay as execv, never execvp.
      */
-    if (execv(absolute_command, newargv) == -1) {
+    if (execv(absolute_command, args) == -1) {
         error("Cannot exec '%s': %s", absolute_command, strerror(errno));
         exit(ROOT_ERROR_EXECUTING_COMMAND);
     }
     /* execv does not return on success */
+}
+
+void usage(void)
+{
+    fprintf(stderr, "Usage: root <command> [<argument>]...\n");
 }
 
 /* vim: set ts=4 sw=4 tw=0 et:*/

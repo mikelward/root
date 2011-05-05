@@ -99,6 +99,10 @@ void error(const char *format, ...)
     va_end(ap);
 }
 
+/*
+ * XXX how to escape control characters,
+ *     e.g. what if command name contains backspaces?
+ */
 void info(const char *format, ...)
 {
     va_list ap;
