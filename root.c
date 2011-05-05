@@ -9,17 +9,22 @@
 #include "root.h"
 
 static void setup_logging();
-static void process_args(int argc, const char * const *argv,
-                         char **absolute_commandp, const char * const **argsp);
+static void process_args(int argc, const char *const *argv,
+                         char **absolute_commandp, const char *const **argsp);
+static void get_command_to_run(const char *command, char **absolute_commandp);
+static void get_absolute_command(const char *qualified_command,
+                                 char **absolute_command);
+static void find_command_in_path(const char *command, char **path_command);
+static int  command_is_safe(const char *path_command);
 static void ensure_permitted(void);
 static void become_root(void);
-static void run_command(const char *absolute_command, const char * const *args);
+static void run_command(const char *absolute_command, const char *const *args);
 static void usage(void);
 
-int main(int argc, const char * const *argv)
+int main(int argc, const char *const *argv)
 {
     char *absolute_command = NULL;
-    const char * const *args = NULL;
+    const char *const *args = NULL;
 
     setup_logging();
 
@@ -50,39 +55,19 @@ void setup_logging()
 /**
  * Process command line arguments and determine the command to run.
  *
- * This is the most complicated part, but the concept is simple.
- *
  * We read the command line arguments to figure out what command to run.
  *
- * The first argument (argv[0] -> *absolute_commandp) is the command.
+ * The first argument (argv[0]) is the command.
  *
- * Any command of the form "/path/to/command" is allowed.
- * Any command of the form "./command" is allowed.
- * Any command of the form "command", is only allowed if it is safe.
- *
- * A safe command is one that forms an absolute path after being
- * looked up in PATH, e.g. "ls" if the first match in PATH is "/bin".
- * An unsafe command is one that forms a relative path after being
- * looked up in PATH, e.g. "ls" if the first match in PATH is "./ls"
- * (where . is the current directory).
- *
- * We could just check for a command starting with a dot, but I also
- * want to handle the case where somebody puts something strange like
- * "bin" in PATH (as opposed to "/bin"), which could also result in
- * running an unintended command.  Ensuring the resultant path is
- * absolute handles both cases.
+ * The command is looked up and converted to an absolute path by
+ * get_command_to_run, then stored in *absolute_commandp.
  *
  * The remaining arguments (argv -> *argsp)
  * (including argv[0] due to C/UNIX conventions)
  * are the arguments that will be passed unchanged to execv().
- *
- * Terminology:
- *  - absolute path     path starting with /     (e.g. /path/to/command)
- *  - qualified path    path containing a /      (e.g. ./command)
- *  - unqualified path  path not containing a /  (e.g. command)
  */
-void process_args(int argc, const char * const *argv,
-                  char **absolute_commandp, const char * const **argsp)
+void process_args(int argc, const char *const *argv,
+                  char **absolute_commandp, const char *const **argsp)
 {
     if (argc < 2) {
         usage();
@@ -102,7 +87,6 @@ void process_args(int argc, const char * const *argv,
     /* skip over our own program name */
     argv++, argc--;
 
-    char *absolute_command = NULL;
     const char *command = argv[0];
     if (command == NULL || *command == '\0') {
         error("Command is NULL\n");
@@ -111,68 +95,158 @@ void process_args(int argc, const char * const *argv,
 
     debug("Command to run is %s\n", command);
 
-    /*
-     * If the command contains a slash, it is always allowed.
-     */
+    get_command_to_run(command, absolute_commandp);
+
+    *argsp = argv;
+}
+
+/**
+ * Determine what command to run and do some safety checks.
+ *
+ * On success, the absolute path of the command to run is stored
+ * in *absolute_commandp.
+ *
+ * On failure, this function calls exit().
+ *
+ * The implementation of the safety checks are a bit complicated,
+ * but the idea is simple.
+ *
+ * If the command contains a slash, allow it.  This is called a
+ * "qualified command".
+ *
+ * If the command doesn't contain a slash, look it up in PATH
+ * and do some safety checks.  This is called an
+ * "unqualified command".
+ *
+ * The safety checks try to prevent an attack where a malicious
+ * user placed malicious code in "/tmp/ls", the user had "."
+ * at the start of PATH, and the user tried to run "root ls".
+ * 
+ * We also want to prohibit running a command if it matched "." at the
+ * end of PATH, for example if an attacker created "/tmp/sl", then even
+ * if "/usr/bin" and "/bin" were at the front of PATH, a simple typo
+ * could result in running the wrong command.
+ *
+ * Examples:
+ *  - "/bin/ls" is allowed
+ *  - "./ls" is allowed
+ *  - "ls" is allowed if PATH="/bin:/bin:." and "/bin/ls" exists
+ *  - "ls" is prohibited if PATH=".:/bin" and "./ls" exists
+ *
+ */
+void get_command_to_run(const char *command, char **absolute_commandp)
+{
+    if (command == NULL) {
+        error("get_command_to_run: command is NULL\n");
+        exit(ROOT_PROGRAMMER_ERROR);
+    }
+    if (absolute_commandp == NULL) {
+        error("get_command_to_run: absolute_commandp is NULL\n");
+        exit(ROOT_PROGRAMMER_ERROR);
+    }
+
+    char *absolute_command = NULL;
+
     if (is_qualified_path(command)) {
         /*
-         * Determine the canonical, absolute path to command
-         * for passing to execv().
+         * path contained a slash,
+         * don't need to look it up in PATH
          */
-        absolute_command = realpath(command, NULL);
-        if (absolute_command == NULL) {
-            error("Cannot determine real path to %s\n", command);
-            exit(ROOT_COMMAND_NOT_FOUND);
-        }
+        get_absolute_command(command, &absolute_command);
     }
-    /*
-     * If the command does not contain a slash, search for it in PATH.
-     */
     else {
-        const char *pathenv = getenv("PATH");
-        if (pathenv == NULL) {
-            error("Cannot get PATH environment variable");
-            exit(ROOT_SYSTEM_ERROR);
-        }
-        debug("Searching for command in PATH=%s", pathenv);
-        char *qualified_command = get_command_path(command, pathenv);
-        if (qualified_command == NULL) {
-            error("Cannot find %s in PATH", command);
-            exit(ROOT_COMMAND_NOT_FOUND);
-        }
+        /*
+         * path didn't contain a slash,
+         * look it up in PATH
+         */
+        char *path_command = NULL;
+        find_command_in_path(command, &path_command);
+
+        get_absolute_command(path_command, &absolute_command);
 
         /*
-         * Determine the canonical, absolute path to command
-         * for passing to execv().
-         *
-         * Logically, this belongs at the bottom of this else branch,
-         * but we do it early so that if we prohibit running the command,
-         * we can tell the user what command really would have been run
-         * (e.g. so we can print "/tmp/ls" rather than "./ls").
+         * ensure the command is safe
          */
-        absolute_command = realpath(qualified_command, NULL);
-        if (absolute_command == NULL) {
-            error("Cannot determine real path to %s\n", qualified_command);
-            exit(ROOT_COMMAND_NOT_FOUND);
-        }
-
-        /*
-         * Ensure the path is an absolute PATH to prevent running
-         * a malicious program installed by a rogue user in the current
-         * directory (or any relative entry in PATH).
-         */
-        if (!is_absolute_path(qualified_command)) {
-            error("You tried to run %s, but this would run %s", command, absolute_command);
-            error("Running commands via \"\" or \".\" in PATH is prohibited for security reasons");
+        if (!command_is_safe(path_command)) {
+            error("You tried to run %s, but this would run %s",
+                  command, absolute_command);
+            error("Running commands via \"\" or \".\" in PATH"
+                  "is prohibited for security reasons");
             error("Run man 1 root for the reasons and solutions");
             exit(ROOT_RELATIVE_PATH_DISALLOWED);
         }
 
-        free(qualified_command);
+        free(path_command);
+    }
+    *absolute_commandp = absolute_command;
+}
+
+void get_absolute_command(const char *qualified_command,
+                          char **absolute_commandp)
+{
+    if (qualified_command == NULL) {
+        error("get_absolute_command: qualified_command is NULL\n");
+        exit(ROOT_PROGRAMMER_ERROR);
+    }
+    if (absolute_commandp == NULL) {
+        error("get_absolute_command: absolute_commandp is NULL\n");
+        exit(ROOT_PROGRAMMER_ERROR);
+    }
+
+    char *absolute_command = realpath(qualified_command, NULL);
+    if (absolute_command == NULL) {
+        error("Cannot determine real path to %s\n", qualified_command);
+        exit(ROOT_COMMAND_NOT_FOUND);
     }
 
     *absolute_commandp = absolute_command;
-    *argsp = argv;
+}
+
+void find_command_in_path(const char *command, char **path_commandp)
+{
+    if (command == NULL) {
+        error("find_command_in_path: command is NULL\n");
+        exit(ROOT_PROGRAMMER_ERROR);
+    }
+    if (path_commandp == NULL) {
+        error("find_command_in_path: path_commandp is NULL\n");
+        exit(ROOT_PROGRAMMER_ERROR);
+    }
+
+    const char *pathenv = getenv("PATH");
+    if (pathenv == NULL) {
+        error("Cannot get PATH environment variable");
+        exit(ROOT_SYSTEM_ERROR);
+    }
+
+    debug("Searching for command in PATH=%s", pathenv);
+    char *path_command = get_command_path(command, pathenv);
+    if (path_command == NULL) {
+        error("Cannot find %s in PATH", command);
+        exit(ROOT_COMMAND_NOT_FOUND);
+    }
+
+    *path_commandp = path_command;
+}
+
+/**
+ * Returns 1 (true) if command is regarded as safe.
+ * Returns 0 (false) otherwise.
+ */
+int command_is_safe(const char *path_command)
+{
+    /*
+     * Ensure the path is an absolute PATH to prevent running
+     * a malicious program installed by a rogue user in the current
+     * directory (or any relative entry in PATH).
+     *
+     * We could just check for a command starting with a dot, but I also
+     * want to handle the case where somebody puts something strange like
+     * "bin" in PATH (as opposed to "/bin"), which could also result in
+     * running an unintended command.  Ensuring the resultant path is
+     * absolute handles both cases.
+     */
+    return is_absolute_path(path_command);
 }
 
 void ensure_permitted(void)
@@ -205,7 +279,7 @@ void become_root(void)
     }
 }
 
-void run_command(const char *absolute_command, const char * const *args)
+void run_command(const char *absolute_command, const char *const *args)
 {
     /*
      * IMPORTANT
@@ -218,7 +292,7 @@ void run_command(const char *absolute_command, const char * const *args)
      * http://pubs.opengroup.org/onlinepubs/009695399/functions/exec.html
      * http://stackoverflow.com/questions/190184/execv-and-const-ness
      */
-    if (execv(absolute_command, (char * const *)args) == -1) {
+    if (execv(absolute_command, (char *const *)args) == -1) {
         error("Cannot exec '%s': %s", absolute_command, strerror(errno));
         exit(ROOT_ERROR_EXECUTING_COMMAND);
     }
