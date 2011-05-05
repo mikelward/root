@@ -115,7 +115,6 @@ void process_args(int argc, const char * const *argv,
      * If the command contains a slash, it is always allowed.
      */
     if (is_qualified_path(command)) {
-
         /*
          * Determine the canonical, absolute path to command
          * for passing to execv().
@@ -201,7 +200,7 @@ void become_root(void)
     if (!become_user(ROOT_UID)) {
         error("Cannot become root");
         /* system error because if this program is installed setuid,
-            * then become_user should always succeed */
+         * then become_user should always succeed */
         exit(ROOT_SYSTEM_ERROR);
     }
 }
