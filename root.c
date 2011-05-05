@@ -173,7 +173,7 @@ void get_command_to_run(const char *command, char **absolute_commandp)
             error("You tried to run %s, but this would run %s",
                   command, absolute_command);
             error("Running commands via \"\" or \".\" in PATH"
-                  "is prohibited for security reasons");
+                  " is prohibited for security reasons");
             error("Run man 1 root for the reasons and solutions");
             exit(ROOT_RELATIVE_PATH_DISALLOWED);
         }
