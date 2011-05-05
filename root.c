@@ -8,13 +8,13 @@
 
 #include "root.h"
 
-void setup_logging();
-void process_args(int argc, char * const *argv,
-                  char **absolute_commandp, char * const **argsp);
-void ensure_permitted(void);
-void become_root(void);
-void run_command(const char *absolute_command, char * const *args);
-void usage(void);
+static void setup_logging();
+static void process_args(int argc, char * const *argv,
+                         char **absolute_commandp, char * const **argsp);
+static void ensure_permitted(void);
+static void become_root(void);
+static void run_command(const char *absolute_command, char * const *args);
+static void usage(void);
 
 int main(int argc, char * const *argv)
 {
