@@ -130,8 +130,10 @@ void process_args(int argc, const char *const *argv,
  * Examples:
  *  - "/bin/ls" is allowed
  *  - "./ls" is allowed
- *  - "ls" is allowed if PATH="/bin:/bin:." and "/bin/ls" exists
+ *  - "ls" is allowed if PATH="/bin" and "/bin/ls" exists
+ *  - "ls" is allowed if PATH="/bin:." and "/bin/ls" exists
  *  - "ls" is prohibited if PATH=".:/bin" and "./ls" exists
+ *  - "sl" is prohibited if PATH="/bin:." and "./sl" exists
  *
  */
 void get_command_to_run(const char *command, char **absolute_commandp)
