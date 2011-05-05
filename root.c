@@ -9,17 +9,17 @@
 #include "root.h"
 
 static void setup_logging();
-static void process_args(int argc, char * const *argv,
-                         char **absolute_commandp, char * const **argsp);
+static void process_args(int argc, const char * const *argv,
+                         char **absolute_commandp, const char * const **argsp);
 static void ensure_permitted(void);
 static void become_root(void);
-static void run_command(const char *absolute_command, char * const *args);
+static void run_command(const char *absolute_command, const char * const *args);
 static void usage(void);
 
-int main(int argc, char * const *argv)
+int main(int argc, const char * const *argv)
 {
     char *absolute_command = NULL;
-    char * const *args = NULL;
+    const char * const *args = NULL;
 
     setup_logging();
 
@@ -81,8 +81,8 @@ void setup_logging()
  *  - qualified path    path containing a /      (e.g. ./command)
  *  - unqualified path  path not containing a /  (e.g. command)
  */
-void process_args(int argc, char * const *argv,
-                  char **absolute_commandp, char * const **argsp)
+void process_args(int argc, const char * const *argv,
+                  char **absolute_commandp, const char * const **argsp)
 {
     if (argc < 2) {
         usage();
@@ -206,13 +206,20 @@ void become_root(void)
     }
 }
 
-void run_command(const char *absolute_command, char * const *args)
+void run_command(const char *absolute_command, const char * const *args)
 {
     /*
      * IMPORTANT
      * This must stay as execv, never execvp.
+     *
+     * The cast is required because execve doesn't enforce const'ness
+     * for backwards compatibility.
+     *
+     * See
+     * http://pubs.opengroup.org/onlinepubs/009695399/functions/exec.html
+     * http://stackoverflow.com/questions/190184/execv-and-const-ness
      */
-    if (execv(absolute_command, args) == -1) {
+    if (execv(absolute_command, (char * const *)args) == -1) {
         error("Cannot exec '%s': %s", absolute_command, strerror(errno));
         exit(ROOT_ERROR_EXECUTING_COMMAND);
     }
