@@ -6,16 +6,35 @@
  * Mikel Ward <mikel@mikelward.com>
  */
 
+/*
+ * XXX realpath(..., NULL) requires _GNU_SOURCE or _XOPEN_SOURCE 700
+ */
+#define _GNU_SOURCE             /* for realpath(..., NULL) */
+#define _BSD_SOURCE             /* strdup(), initgroups(), etc. */
+
+#include <sys/types.h>
+#include <errno.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
 #include "root.h"
+#include "user.h"
+#include "logging.h"
+#include "path.h"
 
 static void setup_logging();
 static void process_args(int argc, const char *const *argv,
                          char **absolute_commandp, const char *const **argsp);
 static void get_command_to_run(const char *command, char **absolute_commandp);
+static void find_and_verify_command(const char *command, char **path_commandp);
 static void get_absolute_command(const char *qualified_command,
                                  char **absolute_command);
-static void find_command_in_path(const char *command, char **path_command);
+static void find_and_verify_command(const char *command, char **path_command);
 static int  command_is_safe(const char *path_command);
+static void print_unsafe_path_entries(const char *pathenv);
 static void ensure_permitted(void);
 static void become_root(void);
 static void run_command(const char *absolute_command, const char *const *args);
@@ -75,12 +94,12 @@ void process_args(int argc, const char *const *argv,
     }
 
     if (absolute_commandp == NULL) {
-        error("process_args: absolute_commandp is NULL\n");
+        error("process_args: absolute_commandp is NULL");
         exit(ROOT_PROGRAMMER_ERROR);
     }
 
     if (argsp == NULL) {
-        error("process_args: argsp is NULL\n");
+        error("process_args: argsp is NULL");
         exit(ROOT_PROGRAMMER_ERROR);
     }
 
@@ -89,11 +108,11 @@ void process_args(int argc, const char *const *argv,
 
     const char *command = argv[0];
     if (command == NULL || *command == '\0') {
-        error("Command is NULL\n");
+        error("Command is NULL");
         exit(ROOT_INVALID_USAGE);
     }
 
-    debug("Command to run is %s\n", command);
+    debug("Command to run is %s", command);
 
     get_command_to_run(command, absolute_commandp);
 
@@ -139,11 +158,11 @@ void process_args(int argc, const char *const *argv,
 void get_command_to_run(const char *command, char **absolute_commandp)
 {
     if (command == NULL) {
-        error("get_command_to_run: command is NULL\n");
+        error("get_command_to_run: command is NULL");
         exit(ROOT_PROGRAMMER_ERROR);
     }
     if (absolute_commandp == NULL) {
-        error("get_command_to_run: absolute_commandp is NULL\n");
+        error("get_command_to_run: absolute_commandp is NULL");
         exit(ROOT_PROGRAMMER_ERROR);
     }
 
@@ -159,25 +178,12 @@ void get_command_to_run(const char *command, char **absolute_commandp)
     else {
         /*
          * path didn't contain a slash,
-         * look it up in PATH
+         * look it up in PATH and make sure it's safe
          */
         char *path_command = NULL;
-        find_command_in_path(command, &path_command);
+        find_and_verify_command(command, &path_command);
 
         get_absolute_command(path_command, &absolute_command);
-
-        /*
-         * ensure the command is safe
-         */
-        if (!command_is_safe(path_command)) {
-            error("You tried to run %s, but this would run %s",
-                  command, absolute_command);
-            error("Running commands via \"\" or \".\" in PATH"
-                  " is prohibited for security reasons");
-            error("Run man 1 root for the reasons and solutions");
-            exit(ROOT_RELATIVE_PATH_DISALLOWED);
-        }
-
         free(path_command);
     }
     *absolute_commandp = absolute_command;
@@ -187,31 +193,31 @@ void get_absolute_command(const char *qualified_command,
                           char **absolute_commandp)
 {
     if (qualified_command == NULL) {
-        error("get_absolute_command: qualified_command is NULL\n");
+        error("get_absolute_command: qualified_command is NULL");
         exit(ROOT_PROGRAMMER_ERROR);
     }
     if (absolute_commandp == NULL) {
-        error("get_absolute_command: absolute_commandp is NULL\n");
+        error("get_absolute_command: absolute_commandp is NULL");
         exit(ROOT_PROGRAMMER_ERROR);
     }
 
     char *absolute_command = realpath(qualified_command, NULL);
     if (absolute_command == NULL) {
-        error("Cannot determine real path to %s\n", qualified_command);
+        error("Cannot determine real path to %s", qualified_command);
         exit(ROOT_COMMAND_NOT_FOUND);
     }
 
     *absolute_commandp = absolute_command;
 }
 
-void find_command_in_path(const char *command, char **path_commandp)
+void find_and_verify_command(const char *command, char **path_commandp)
 {
     if (command == NULL) {
-        error("find_command_in_path: command is NULL\n");
+        error("find_and_verify_command: command is NULL");
         exit(ROOT_PROGRAMMER_ERROR);
     }
     if (path_commandp == NULL) {
-        error("find_command_in_path: path_commandp is NULL\n");
+        error("find_and_verify_command: path_commandp is NULL");
         exit(ROOT_PROGRAMMER_ERROR);
     }
 
@@ -226,6 +232,27 @@ void find_command_in_path(const char *command, char **path_commandp)
     if (path_command == NULL) {
         error("Cannot find %s in PATH", command);
         exit(ROOT_COMMAND_NOT_FOUND);
+    }
+
+    /*
+     * ensure the command is safe
+     */
+    if (!command_is_safe(path_command)) {
+        /*
+         * XXX
+         * this should only go to the log file
+         */
+        error("Attempt to run relative PATH command %s", path_command);
+        char *absolute_command;
+        get_absolute_command(path_command, &absolute_command);
+        print("You tried to run %s, but this would run %s",
+               command, absolute_command);
+        print("This has been prevented because it is potentially unsafe");
+        print("Consider removing the following entries from your PATH:");
+        print_unsafe_path_entries(pathenv);
+        print("Or run the command using an absolute path");
+        print("Run \"man root\" for more details");
+        exit(ROOT_RELATIVE_PATH_DISALLOWED);
     }
 
     *path_commandp = path_command;
@@ -249,6 +276,18 @@ int command_is_safe(const char *path_command)
      * absolute handles both cases.
      */
     return is_absolute_path(path_command);
+}
+
+void print_if_unsafe(const char *dir)
+{
+    if (!command_is_safe(dir)) {
+        print("\t\"%s\"", dir);
+    }
+}
+
+void print_unsafe_path_entries(const char *pathenv)
+{
+    pathenv_each(pathenv, &print_if_unsafe);
 }
 
 void ensure_permitted(void)
@@ -303,7 +342,7 @@ void run_command(const char *absolute_command, const char *const *args)
 
 void usage(void)
 {
-    fprintf(stderr, "Usage: root <command> [<argument>]...\n");
+    print("Usage: root <command> [<argument>]...");
 }
 
 /* vim: set ts=4 sw=4 tw=0 et:*/

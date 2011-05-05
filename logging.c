@@ -112,6 +112,24 @@ void info(const char *format, ...)
     va_end(ap);
 }
 
+/*
+ * XXX
+ * figure out how to merge this with writescreen in a way
+ * that makes more sense
+ */
+void print(const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    vfprintf(stderr, format, ap);
+    /*
+     * because we want to maintain the same calling convention as
+     * info and error, but they don't require a trailing newline
+     */
+    fprintf(stderr, "\n");
+    va_end(ap);
+}
+
 char *get_username(uid_t uid)
 {
     struct passwd *ppw = getpwuid(uid);

@@ -23,23 +23,5 @@
 #define ROOT_ERROR_EXECUTING_COMMAND    126
 #define ROOT_COMMAND_NOT_FOUND          127
 
-/*
- * XXX realpath(..., NULL) requires _GNU_SOURCE or _XOPEN_SOURCE 700
- */
-#define _GNU_SOURCE             /* for realpath(..., NULL) */
-#define _BSD_SOURCE             /* strdup(), initgroups(), etc. */
-
-#include <sys/types.h>
-#include <errno.h>
-#include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
-#include "user.h"
-#include "logging.h"
-#include "path.h"
-
 #endif
 /* vim: set ts=4 sw=4 tw=0 et:*/

@@ -97,4 +97,25 @@ int is_absolute_path(const char *path)
     return path && path[0] == DIRSEP;
 }
 
+/**
+ * Perform an action on each element of PATH.
+ */
+void pathenv_each(const char *pathenv, void (*func)(const char *pathentry))
+{
+    if (pathenv == NULL) {
+        error("pathenv_each: pathenv is NULL\n");
+        return;
+    }
+
+    char *pathenvcopy = strdup(pathenv);
+
+    for (char *dir = strtok(pathenvcopy, PATHENVSEP);
+         dir != NULL;
+         dir = strtok(NULL, PATHENVSEP)) {
+
+        (*func)(dir);
+    }
+}
+
+
 /* vim: set ts=4 sw=4 tw=0 et:*/
