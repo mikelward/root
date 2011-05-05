@@ -245,13 +245,13 @@ void find_and_verify_command(const char *command, char **path_commandp)
         error("Attempt to run relative PATH command %s", path_command);
         char *absolute_command;
         get_absolute_command(path_command, &absolute_command);
-        print("You tried to run %s, but this would run %s",
+        print("You tried to run %s, but this would run %s\n",
                command, absolute_command);
-        print("This has been prevented because it is potentially unsafe");
+        print("This has been prevented because it is potentially unsafe\n");
         print("Consider removing the following entries from your PATH:");
         print_unsafe_path_entries(pathenv);
-        print("Or run the command using an absolute path");
-        print("Run \"man root\" for more details");
+        print("Or run the command using an absolute path\n");
+        print("Run \"man root\" for more details\n");
         exit(ROOT_RELATIVE_PATH_DISALLOWED);
     }
 
@@ -281,13 +281,14 @@ int command_is_safe(const char *path_command)
 void print_if_unsafe(const char *dir)
 {
     if (!command_is_safe(dir)) {
-        print("\t\"%s\"", dir);
+        print(" \"%s\"", dir);
     }
 }
 
 void print_unsafe_path_entries(const char *pathenv)
 {
     pathenv_each(pathenv, &print_if_unsafe);
+    print("\n");
 }
 
 void ensure_permitted(void)

@@ -123,10 +123,13 @@ void print(const char *format, ...)
     va_start(ap, format);
     vfprintf(stderr, format, ap);
     /*
-     * because we want to maintain the same calling convention as
-     * info and error, but they don't require a trailing newline
+     * XXX we currently don't append a newline here
+     * because that makes the print_unsafe_path_entries code
+     * cleaner
+     *
+     * but this makes print() inconsistent with info, error, etc
+     * which don't require an explicit newline
      */
-    fprintf(stderr, "\n");
     va_end(ap);
 }
 
