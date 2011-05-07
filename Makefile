@@ -7,16 +7,16 @@ CFLAGS=-std=gnu99 -Wall -Werror
 all: tags test root
 
 tags: *.c *.h
-	ctags -R
+	ctags -f $@ *.c *.h
 
 test: loggingtest
 
-loggingtest: loggingtest.c logging.o
-	$(CC) $(CFLAGS) -o $@ $^
+loggingtest: loggingtest.o logging.o
+	$(CC) $(LDFLAGS) -o $@ loggingtest.o logging.o
 	./$@
 
-root: root.c user.o path.o logging.o
-	$(CC) $(CFLAGS) -o $@ $^
+root: root.o user.o path.o logging.o
+	$(CC) $(LDFLAGS) -o $@ root.o user.o path.o logging.o
 
 install:
 	install -d $(BINDIR)
