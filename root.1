@@ -20,14 +20,15 @@ or
 .SH OPTIONS
 None.
 .SH "PERMISSION TO RUN ROOT"
-If the user running
+To run
+.BR root ,
+the user must be a member of group 0, usually called
 .B root
-is a member of group 0, permission is granted, otherwise permission is denied.
-.P
-Group 0 is usually root or wheel.
-You can run
-.B "root id -gn"
-to confirm which.
+or
+.BR wheel .
+Run
+.B "id -gn root"
+to confirm.
 .P
 To grant
 .I user
@@ -42,7 +43,6 @@ run:
 .B usermod -a -G 0
 .I user
 .RE
-.P
 .SH "RELATIVE PATHS"
 .B root
 will not allow running any command that was found via "" or "." in
