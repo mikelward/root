@@ -87,6 +87,8 @@ void debug(const char *format, ...)
     va_list ap;
     va_start(ap, format);
     writelog(LOG_DEBUG, format, ap);
+    va_end(ap);
+    va_start(ap, format);
     writescreen(LOG_DEBUG, format, ap);
     va_end(ap);
 }
@@ -96,6 +98,8 @@ void error(const char *format, ...)
     va_list ap;
     va_start(ap, format);
     writelog(LOG_ERR, format, ap);
+    va_end(ap);
+    va_start(ap, format);
     writescreen(LOG_ERR, format, ap);
     va_end(ap);
 }
@@ -109,6 +113,8 @@ void info(const char *format, ...)
     va_list ap;
     va_start(ap, format);
     writelog(LOG_INFO, format, ap);
+    va_end(ap);
+    va_start(ap, format);
     writescreen(LOG_INFO, format, ap);
     va_end(ap);
 }
