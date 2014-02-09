@@ -21,39 +21,52 @@ void initlog(const char *name)
     g_progname = strdup(name);
 }
 
+/*
+ * Return a string in the format "<tag>: <format><suffix>".
+ *
+ * Caller must free returned string.
+ */
+char *makeformat(const char *tag, const char *format, const char *suffix)
+{
+    char *fmt = NULL; size_t fmtmax, fmtlen;
+
+    fmtmax = strlen(tag) + strlen(": ") + strlen(format) + strlen(suffix) + 1;
+    fmt = malloc(fmtmax * sizeof *format);
+    if (fmt == NULL) {
+        return NULL;
+    }
+
+    fmtlen = snprintf(fmt, fmtmax, "%s: %s%s", tag, format, suffix);
+    if (fmtlen >= fmtmax) {
+        /* Don't call writescreen or writelog, since that's how we got here. */
+        fprintf(stderr, "root: Unable to make log format\n");
+        syslog(LOG_CRIT, "root: Unable to make log format");
+        exit(1);
+    }
+
+    return fmt;
+}
+
 void writelog(int priority, const char *format, va_list ap)
 {
-    char *logformat = NULL; size_t logformatmax, logformatlen;
-    char *username = NULL; uid_t ruid;
+    char *logformat = NULL;
+    char *escapedusername = NULL;
+    uid_t ruid;
 
     ruid = getuid();
-    username = escape_percents(get_username(ruid));
+    escapedusername = escape_percents(get_username(ruid));
+    logformat = makeformat(escapedusername, format, "");
 
-    logformatmax = strlen(username) + strlen(": ") + strlen(format) + 1;
-    logformat = malloc(logformatmax * sizeof *logformat);
-    if (logformat == NULL) {
-        return;
-    }
+    vsyslog(priority, logformat, ap);
 
-    /* note no newline: rsyslog doesn't like newlines, vanilla syslog untested */
-    logformatlen = snprintf(logformat, logformatmax, "%s: %s", username, format);
-    /* XXX what if logformatlen > logformatmax? */
-
-    if (logformatlen > 0) {
-        vsyslog(priority, logformat, ap);
-    }
-    else {
-        syslog(LOG_ERR, "Cannot format log message, using default format");
-        vsyslog(priority, format, ap);
-    }
-
-    free(username);
+    free(escapedusername);
+    free(logformat);
 }
 
 void writescreen(int priority, const char *format, va_list ap)
 {
-    char *printformat = NULL; size_t printformatmax, printformatlen;
-    char *progname = NULL;
+    char *screenformat = NULL;
+    char *escapedprogname = NULL;
 
     /* only print messages at loglevel or "lower" priority */
     /* with syslog, lowest means most important */
@@ -61,24 +74,12 @@ void writescreen(int priority, const char *format, va_list ap)
         return;
     }
 
-    progname = escape_percents(g_progname);
+    escapedprogname = escape_percents(g_progname);
+    screenformat = makeformat(escapedprogname, format, "\n");
+    vfprintf(stderr, screenformat, ap);
 
-    printformatmax = strlen(progname) + strlen(": ") + strlen(format) + strlen("\n") + 1;
-    printformat = malloc(printformatmax * sizeof *printformat);
-    if (printformat == NULL) {
-        return;
-    }
-
-    printformatlen = snprintf(printformat, printformatmax, "%s: %s\n", progname, format);
-    /* XXX what if printformatlen > printformatmax? */
-
-    if (printformatlen > 0) {
-        vfprintf(stderr, printformat, ap);
-    }
-    else {
-        syslog(LOG_ERR, "Cannot format screen message, using default format");
-        vfprintf(stderr, format, ap);
-    }
+    free(escapedprogname);
+    free(screenformat);
 }
 
 void debug(const char *format, ...)
@@ -113,23 +114,17 @@ void info(const char *format, ...)
 }
 
 /*
- * XXX
- * figure out how to merge this with writescreen in a way
- * that makes more sense
+ * Print the given message on stderr.
+ *
+ * Arguments are just log printf.
+ *
+ * Note that print does not add an implicit newline.
  */
 void print(const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
     vfprintf(stderr, format, ap);
-    /*
-     * XXX we currently don't append a newline here
-     * because that makes the print_unsafe_path_entries code
-     * cleaner
-     *
-     * but this makes print() inconsistent with info, error, etc
-     * which don't require an explicit newline
-     */
     va_end(ap);
 }
 

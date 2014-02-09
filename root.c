@@ -343,7 +343,7 @@ void run_command(const char *absolute_command, const char *const *args)
 
 void usage(void)
 {
-    print("Usage: root <command> [<argument>]...");
+    print("Usage: root <command> [<argument>]...\n");
 }
 
 /* vim: set ts=4 sw=4 tw=0 et:*/
