@@ -10,7 +10,8 @@
  * XXX realpath(..., NULL) requires _GNU_SOURCE or _XOPEN_SOURCE 700
  */
 #define _GNU_SOURCE             /* for realpath(..., NULL) */
-#define _BSD_SOURCE             /* strdup(), initgroups(), etc. */
+#define _DEFAULT_SOURCE         /* strdup(), etc., glibc >= 2.20 */
+#define _BSD_SOURCE             /* strdup(), etc. */
 
 #include <sys/types.h>
 #include <errno.h>

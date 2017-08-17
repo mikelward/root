@@ -1,3 +1,4 @@
+#define _DEFAULT_SOURCE         /* for initgroups(), glibc >= 2.20 */
 #define _BSD_SOURCE             /* for initgroups() */
 
 #include <sys/types.h>

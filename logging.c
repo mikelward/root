@@ -1,3 +1,4 @@
+#define _DEFAULT_SOURCE         /* for strdup(), glibc >= 2.20 */
 #define _BSD_SOURCE             /* for strdup() */
 
 #include <sys/types.h>
