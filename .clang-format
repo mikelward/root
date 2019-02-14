@@ -1,0 +1,28 @@
+Language: Cpp
+AlignOperands: true
+AllowShortFunctionsOnASingleLine: false
+AlignTrailingComments: true
+BinPackArguments: false
+BinPackParameters: false
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: true
+  BeforeElse: true
+BreakBeforeBinaryOperators: None
+IncludeBlocks: Preserve
+IncludeIsMainRegex: ""
+IncludeCategories:
+  - Regex: '^<(sys)/'
+    Priority: -2
+  - Regex: '^<'
+    Priority: -1
+  - Regex: '^"'
+    Priority: 1
+IndentWidth: 4
+KeepEmptyLinesAtTheStartOfBlocks: false
+PointerAlignment: Right
+SortIncludes: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpacesBeforeTrailingComments: 4
+
