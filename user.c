@@ -1,5 +1,5 @@
-#define _DEFAULT_SOURCE         /* for initgroups(), glibc >= 2.20 */
-#define _BSD_SOURCE             /* for initgroups() */
+#define _DEFAULT_SOURCE /* for initgroups(), glibc >= 2.20 */
+#define _BSD_SOURCE     /* for initgroups() */
 
 #include <sys/types.h>
 #include <errno.h>
@@ -9,9 +9,9 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "logging.h"
 #include "root.h"
 #include "user.h"
-#include "logging.h"
 
 char *get_group_name(gid_t gid)
 {
@@ -38,7 +38,8 @@ int in_group(gid_t root_gid)
         errno = 0;
         ngroups_max = sysconf(_SC_NGROUPS_MAX);
         if (ngroups_max == -1) {
-            error("Cannot determine maximum number of groups: %s", strerror(errno));
+            error("Cannot determine maximum number of groups: %s",
+                  strerror(errno));
             exit(ROOT_SYSTEM_ERROR);
         }
         else {
@@ -65,6 +66,7 @@ int in_group(gid_t root_gid)
 int setup_groups(uid_t uid)
 {
     struct passwd *ps;
+    int result;
 
     errno = 0;
     ps = getpwuid(uid);
@@ -72,26 +74,42 @@ int setup_groups(uid_t uid)
         error("Cannot get passwd info for uid %d: %s", uid, strerror(errno));
         exit(ROOT_SYSTEM_ERROR);
     }
-    else {
-        int result;
 
-        errno = 0;
-        result = setgid(ps->pw_gid);
-        if (result == -1) {
-            error("Cannot setgid %d: %s", ps->pw_gid, strerror(errno));
-            exit(ROOT_SYSTEM_ERROR);
-        }
-
-        errno = 0;
-        result = initgroups(ps->pw_name, ps->pw_gid);
-        if (result == -1) {
-            error("Cannot initgroups for %s: %s", ps->pw_name, strerror(errno));
-            exit(ROOT_SYSTEM_ERROR);
-        }
-        else {
-            return 0;
-        }
+    errno = 0;
+    result = setgid(ps->pw_gid);
+    if (result == -1) {
+        error("Cannot setgid %d: %s", ps->pw_gid, strerror(errno));
+        exit(ROOT_SYSTEM_ERROR);
     }
+
+    errno = 0;
+    result = initgroups(ps->pw_name, ps->pw_gid);
+    if (result == -1) {
+        error("Cannot initgroups for %s: %s", ps->pw_name, strerror(errno));
+        exit(ROOT_SYSTEM_ERROR);
+    }
+    else {
+        return 0;
+    }
+}
+
+/*
+ * set the $HOME environment variable to the target uid's home directory
+ *
+ * returns 1 (true) on success, 0 (false) on failure
+ */
+int set_home_dir(uid_t uid)
+{
+    struct passwd *ps;
+
+    errno = 0;
+    ps = getpwuid(uid);
+    if (ps == NULL) {
+        error("Cannot get passwd info for uid %d: %s", uid, strerror(errno));
+        exit(ROOT_SYSTEM_ERROR);
+    }
+
+    return setenv("HOME", ps->pw_dir, 1) == 0;
 }
 
 /*

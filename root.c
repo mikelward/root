@@ -6,12 +6,9 @@
  * Mikel Ward <mikel@mikelward.com>
  */
 
-/*
- * XXX realpath(..., NULL) requires _GNU_SOURCE or _XOPEN_SOURCE 700
- */
-#define _GNU_SOURCE             /* for realpath(..., NULL) */
-#define _DEFAULT_SOURCE         /* strdup(), etc., glibc >= 2.20 */
-#define _BSD_SOURCE             /* strdup(), etc. */
+#define _GNU_SOURCE     /* for realpath(..., NULL) */
+#define _DEFAULT_SOURCE /* strdup(), etc., glibc >= 2.20 */
+#define _BSD_SOURCE     /* strdup(), etc. */
 
 #include <sys/types.h>
 #include <errno.h>
@@ -21,20 +18,22 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "root.h"
-#include "user.h"
 #include "logging.h"
 #include "path.h"
+#include "root.h"
+#include "user.h"
 
 static void setup_logging();
-static void process_args(int argc, const char *const *argv,
-                         char **absolute_commandp, const char *const **argsp);
+static void process_args(int argc,
+                         const char *const *argv,
+                         char **absolute_commandp,
+                         const char *const **argsp);
 static void get_command_to_run(const char *command, char **absolute_commandp);
 static void find_and_verify_command(const char *command, char **path_commandp);
 static void get_absolute_command(const char *qualified_command,
                                  char **absolute_command);
 static void find_and_verify_command(const char *command, char **path_command);
-static int  command_is_safe(const char *path_command);
+static int command_is_safe(const char *path_command);
 static void print_unsafe_path_entries(const char *pathenv);
 static void ensure_permitted(void);
 static void become_root(void);
@@ -86,8 +85,10 @@ void setup_logging()
  * (including argv[0] due to C/UNIX conventions)
  * are the arguments that will be passed unchanged to execv().
  */
-void process_args(int argc, const char *const *argv,
-                  char **absolute_commandp, const char *const **argsp)
+void process_args(int argc,
+                  const char *const *argv,
+                  char **absolute_commandp,
+                  const char *const **argsp)
 {
     if (argc < 2) {
         usage();
@@ -141,7 +142,7 @@ void process_args(int argc, const char *const *argv,
  * The safety checks try to prevent an attack where a malicious
  * user placed malicious code in "/tmp/ls", the user had "."
  * at the start of PATH, and the user tried to run "root ls".
- * 
+ *
  * We also want to prohibit running a command if it matched "." at the
  * end of PATH, for example if an attacker created "/tmp/sl", then even
  * if "/usr/bin" and "/bin" were at the front of PATH, a simple typo
@@ -247,7 +248,8 @@ void find_and_verify_command(const char *command, char **path_commandp)
         char *absolute_command;
         get_absolute_command(path_command, &absolute_command);
         print("You tried to run %s, but this would run %s\n",
-               command, absolute_command);
+              command,
+              absolute_command);
         print("This has been prevented because it is potentially unsafe\n");
         print("Consider removing the following entries from your PATH:");
         print_unsafe_path_entries(pathenv);
@@ -308,10 +310,7 @@ void ensure_permitted(void)
 
 void become_root(void)
 {
-    /*
-     * XXX
-     * should setup_groups be part of become_user() ?
-     */
+    set_home_dir(ROOT_UID);
     setup_groups(ROOT_UID);
 
     if (!become_user(ROOT_UID)) {
