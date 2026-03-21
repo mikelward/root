@@ -32,7 +32,7 @@ char *makeformat(const char *tag, const char *format, const char *suffix)
     char *fmt = NULL; size_t fmtmax, fmtlen;
 
     fmtmax = strlen(tag) + strlen(": ") + strlen(format) + strlen(suffix) + 1;
-    fmt = malloc(fmtmax * sizeof *format);
+    fmt = malloc(fmtmax);
     if (fmt == NULL) {
         return NULL;
     }

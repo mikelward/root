@@ -28,6 +28,7 @@ void testescape1(void)
     actual = escape_percents(input);
 
     assert(strcmp(actual, expected) == 0);
+    free(actual);
 }
 
 void testescape2(void)
@@ -51,6 +52,7 @@ void testescape3(void)
     actual = escape_percents(input);
 
     assert(strcmp(actual, expected) == 0);
+    free(actual);
 }
 
 /* vim: set ts=4 sw=4 tw=0 et:*/

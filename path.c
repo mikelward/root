@@ -34,6 +34,7 @@ char *get_command_path(const char *command, const char *pathenv)
         char *path = malloc(dirlen+1+commandlen+1);
         if (path == NULL) {
             error("Cannot allocate memory to hold path");
+            free(pathenvcopy);
             return NULL;
         }
         strcpy(path, dir);
@@ -68,7 +69,7 @@ char *get_command_path(const char *command, const char *pathenv)
 }
 
 /**
- * Returns 0 (true) if path does not contain a slash.
+ * Returns non-zero (true) if path does not contain a slash.
  *
  * This is typically used to determine whether a command
  * should be looked up in PATH or executed as-is.
@@ -79,7 +80,7 @@ int is_unqualified_path(const char *path)
 }
 
 /**
- * Returns 0 (true) if path contains a slash.
+ * Returns non-zero (true) if path contains a slash.
  *
  * This is typically used to determine whether a command
  * should be looked up in PATH or executed as-is.
@@ -90,7 +91,7 @@ int is_qualified_path(const char *path)
 }
 
 /**
- * Returns 0 (true) if path is an unambigious path starting at the root.
+ * Returns non-zero (true) if path is an unambiguous path starting at the root.
  */
 int is_absolute_path(const char *path)
 {
@@ -115,6 +116,8 @@ void pathenv_each(const char *pathenv, void (*func)(const char *pathentry))
 
         (*func)(dir);
     }
+
+    free(pathenvcopy);
 }
 
 
