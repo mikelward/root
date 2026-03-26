@@ -12,6 +12,7 @@
 
 #include <sys/types.h>
 #include <errno.h>
+#include <getopt.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,6 +23,8 @@
 #include "path.h"
 #include "root.h"
 #include "user.h"
+
+static int set_home = 1;
 
 static void setup_logging();
 static void process_args(int argc,
@@ -105,8 +108,35 @@ void process_args(int argc,
         exit(ROOT_PROGRAMMER_ERROR);
     }
 
-    /* skip over our own program name */
-    argv++, argc--;
+    static const struct option long_options[] = {
+        {"home",   no_argument, NULL, 'h'},
+        {"nohome", no_argument, NULL, 'H'},
+        {NULL,     0,           NULL, 0}
+    };
+
+    int opt;
+    while ((opt = getopt_long(argc, (char *const *)argv, "+H",
+                              long_options, NULL)) != -1) {
+        switch (opt) {
+        case 'h':
+            set_home = 1;
+            break;
+        case 'H':
+            set_home = 0;
+            break;
+        default:
+            usage();
+            exit(ROOT_INVALID_USAGE);
+        }
+    }
+
+    argc -= optind;
+    argv += optind;
+
+    if (argc < 1) {
+        usage();
+        exit(ROOT_INVALID_USAGE);
+    }
 
     const char *command = argv[0];
     if (command == NULL || *command == '\0') {
@@ -310,7 +340,9 @@ void ensure_permitted(void)
 
 void become_root(void)
 {
-    set_home_dir(ROOT_UID);
+    if (set_home) {
+        set_home_dir(ROOT_UID);
+    }
     setup_groups(ROOT_UID);
 
     if (!become_user(ROOT_UID)) {
@@ -343,7 +375,7 @@ void run_command(const char *absolute_command, const char *const *args)
 
 void usage(void)
 {
-    print("Usage: root <command> [<argument>]...\n");
+    print("Usage: root [-H | --nohome | --home] <command> [<argument>]...\n");
 }
 
 /* vim: set ts=4 sw=4 tw=0 et:*/

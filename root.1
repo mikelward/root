@@ -2,7 +2,8 @@
 .SH NAME
 root \- run a command as the root user
 .SH SYNOPSIS
-root
+.B root
+.RB [ \-H " | " \-\-nohome " | " \-\-home ]
 .I command
 .RI [ argument ]...
 .SH DESCRIPTION
@@ -18,7 +19,28 @@ which sometimes changes
 or
 .BR HOME .
 .SH OPTIONS
-None.
+.TP
+.BR \-H ", " \-\-nohome
+Do not set the
+.B HOME
+environment variable.
+By default,
+.B root
+sets
+.B HOME
+to the target user's home directory.
+With
+.BR \-H ,
+.B HOME
+is left unchanged.
+.TP
+.B \-\-home
+Set the
+.B HOME
+environment variable to the target user's home directory.
+This is the default behavior, but can be used to override a previous
+.B \-H
+option (e.g. in a shell alias).
 .SH "PERMISSION TO RUN ROOT"
 To run
 .BR root ,
