@@ -6,7 +6,6 @@
  * Mikel Ward <mikel@mikelward.com>
  */
 
-#define _GNU_SOURCE     /* for realpath(..., NULL) */
 #define _DEFAULT_SOURCE /* strdup(), etc., glibc >= 2.20 */
 #define _BSD_SOURCE     /* strdup(), etc. */
 
@@ -233,10 +232,16 @@ void get_absolute_command(const char *qualified_command,
         exit(ROOT_PROGRAMMER_ERROR);
     }
 
-    char *absolute_command = realpath(qualified_command, NULL);
-    if (absolute_command == NULL) {
+    char resolved[PATH_MAX];
+    if (realpath(qualified_command, resolved) == NULL) {
         error("Cannot determine real path to %s", qualified_command);
         exit(ROOT_COMMAND_NOT_FOUND);
+    }
+
+    char *absolute_command = strdup(resolved);
+    if (absolute_command == NULL) {
+        error("Cannot allocate memory for resolved path");
+        exit(ROOT_SYSTEM_ERROR);
     }
 
     *absolute_commandp = absolute_command;
