@@ -156,12 +156,33 @@ The `print()` function writes directly to stderr without going through syslog
 These mirror shell conventions (126 = command not executable, 127 = command not
 found).
 
+## Portability
+
+`root` is written in standard C99 and targets POSIX systems. It builds and runs
+on:
+
+- **Linux** (glibc, musl)
+- **FreeBSD** / **OpenBSD** / **NetBSD**
+- **macOS** (Darwin)
+
+### Portability notes
+
+- The `install` target accepts an `INSTALL_GROUP` variable (default: `root`)
+  to accommodate systems where group 0 is named `wheel` (BSD, macOS):
+  `make install INSTALL_GROUP=wheel`.
+
 ## Installation
 
 The binary must be installed **setuid root** for privilege escalation to work:
 
 ```
 install -o root -g root -m 4755 root /usr/local/bin/root
+```
+
+On BSD and macOS, use group `wheel`:
+
+```
+make install INSTALL_GROUP=wheel
 ```
 
 ## Shell Alias Tip
@@ -202,3 +223,6 @@ alias root='root '   # trailing space enables alias expansion
 
 5. **Minimal attack surface** - Small C codebase, no external dependencies
    beyond libc, strict compiler warnings (`-Wall -Werror`).
+
+6. **Portability** - Uses POSIX-standard C99 and avoids GNU-specific extensions
+   so the code builds and runs on Linux, BSD, and macOS.

@@ -3,6 +3,7 @@
 
 extern int loglevel;
 
+#include <sys/types.h>
 #include <stdarg.h>
 #include <pwd.h>
 
