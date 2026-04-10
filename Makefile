@@ -22,6 +22,14 @@ pathtest: pathtest.o path.o logging.o
 root: root.o user.o path.o logging.o
 	$(CC) $(LDFLAGS) -o $@ root.o user.o path.o logging.o
 
+# Header dependencies
+root.o: root.h logging.h path.h user.h
+user.o: user.h root.h logging.h
+path.o: path.h root.h logging.h
+logging.o: logging.h
+loggingtest.o: logging.h
+pathtest.o: path.h
+
 INSTALL_GROUP?=root
 
 install:
