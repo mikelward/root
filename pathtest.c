@@ -134,6 +134,7 @@ void test_is_unqualified_path(void)
     assert(is_unqualified_path("ls"));
     assert(!is_unqualified_path("/bin/ls"));
     assert(!is_unqualified_path("./ls"));
+    assert(!is_unqualified_path(NULL));
 }
 
 int main(int argc, const char *argv[])
