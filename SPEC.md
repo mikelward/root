@@ -71,7 +71,7 @@ Examples: `/bin/ls`, `./mycommand`, `../bin/test`
 Examples: `ls`, `cat`, `grep`
 
 - Looked up in the `PATH` environment variable.
-- The first matching file (checked via `access(path, F_OK)`) is used.
+- The first matching executable (checked via `access(path, X_OK)`) is used.
 - The resolved path **must be absolute**. If the match came from a relative
   `PATH` entry (e.g. `.`, `""`, or `bin` instead of `/bin`), the command is
   **rejected** (see [PATH Safety](#path-safety)).

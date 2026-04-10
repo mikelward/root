@@ -346,7 +346,10 @@ void ensure_permitted(void)
 void become_root(void)
 {
     if (set_home) {
-        set_home_dir(ROOT_UID);
+        if (!set_home_dir(ROOT_UID)) {
+            error("Cannot set HOME directory");
+            exit(ROOT_SYSTEM_ERROR);
+        }
     }
     setup_groups(ROOT_UID);
 

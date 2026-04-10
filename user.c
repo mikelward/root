@@ -96,7 +96,7 @@ int setup_groups(uid_t uid)
         exit(ROOT_SYSTEM_ERROR);
     }
     else {
-        return 0;
+        return 1;
     }
 }
 

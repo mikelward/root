@@ -1,4 +1,5 @@
 *.o
 loggingtest
+pathtest
 root
 tags

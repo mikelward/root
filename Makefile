@@ -9,10 +9,14 @@ all: tags test root
 tags: *.c *.h
 	ctags -f $@ *.c *.h
 
-test: loggingtest
+test: loggingtest pathtest
 
 loggingtest: loggingtest.o logging.o
 	$(CC) $(LDFLAGS) -o $@ loggingtest.o logging.o
+	./$@
+
+pathtest: pathtest.o path.o logging.o
+	$(CC) $(LDFLAGS) -o $@ pathtest.o path.o logging.o
 	./$@
 
 root: root.o user.o path.o logging.o
@@ -30,5 +34,5 @@ clean:
 	-rm *.o
 
 clobber: clean
-	-rm root
+	-rm root loggingtest pathtest
 

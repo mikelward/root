@@ -16,6 +16,11 @@
 int loglevel = LOG_NOTICE;        /* only print NOTICE, ERROR, CRIT, ... */
 static const char *g_progname;    /* XXX? maybe share this with root.o */
 
+void setloglevel(int level)
+{
+    loglevel = level;
+}
+
 void initlog(const char *name)
 {
     openlog(name, LOG_CONS|LOG_PID, LOG_AUTHPRIV);
