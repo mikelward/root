@@ -237,8 +237,9 @@ void get_absolute_command(const char *qualified_command,
     }
 
     char resolved[PATH_MAX];
+    errno = 0;
     if (realpath(qualified_command, resolved) == NULL) {
-        error("Cannot determine real path to %s", qualified_command);
+        error("Cannot determine real path to %s: %s", qualified_command, strerror(errno));
         exit(ROOT_COMMAND_NOT_FOUND);
     }
 

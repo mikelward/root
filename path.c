@@ -23,11 +23,20 @@
  */
 char *get_command_path(const char *command, const char *pathenv)
 {
+    if (command == NULL) {
+        error("get_command_path: command is NULL");
+        exit(ROOT_PROGRAMMER_ERROR);
+    }
+    if (pathenv == NULL) {
+        error("get_command_path: pathenv is NULL");
+        exit(ROOT_PROGRAMMER_ERROR);
+    }
+
     size_t commandlen = strlen(command);
     char *pathenvcopy = strdup(pathenv);
     if (pathenvcopy == NULL) {
         error("Cannot allocate memory to hold pathenv");
-        return NULL;
+        exit(ROOT_SYSTEM_ERROR);
     }
 
     char *remaining = pathenvcopy;
@@ -54,7 +63,7 @@ char *get_command_path(const char *command, const char *pathenv)
         if (path == NULL) {
             error("Cannot allocate memory to hold path");
             free(pathenvcopy);
-            return NULL;
+            exit(ROOT_SYSTEM_ERROR);
         }
         strcpy(path, dir);
 
