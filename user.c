@@ -70,6 +70,13 @@ int in_group(gid_t root_gid)
     }
 }
 
+/*
+ * set up groups for the target uid
+ *
+ * calls exit() on failure because these are unrecoverable system errors
+ * and we don't want to leave the process in a partially modified state
+ * (e.g. setgid succeeded but initgroups failed)
+ */
 int setup_groups(uid_t uid)
 {
     struct passwd *ps;
@@ -103,7 +110,8 @@ int setup_groups(uid_t uid)
 /*
  * set the $HOME environment variable to the target uid's home directory
  *
- * returns 1 (true) on success, 0 (false) on failure
+ * returns 1 (true) on success, 0 (false) on setenv failure
+ * calls exit() if getpwuid fails (unrecoverable system error)
  */
 int set_home_dir(uid_t uid)
 {
@@ -124,7 +132,8 @@ int set_home_dir(uid_t uid)
  *
  * currently the only supported user is root (uid=0)
  *
- * returns 1 (true) on success, 0 (false) on failure
+ * returns 1 (true) on success, 0 (false) if uid != 0
+ * calls exit() if setuid fails (unrecoverable system error)
  */
 int become_user(uid_t uid)
 {
@@ -144,7 +153,7 @@ int become_user(uid_t uid)
     errno = 0;
     if (setuid(ROOT_UID) == -1) {
         error("Cannot setuid %lu: %s", (unsigned long)ROOT_UID, strerror(errno));
-        return 0;
+        exit(ROOT_SYSTEM_ERROR);
     }
     return 1;
 }
