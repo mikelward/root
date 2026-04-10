@@ -157,10 +157,10 @@ void test_get_command_path_ignores_directories(void)
     }
 
     char templ[PATH_MAX];
-    int templ_length = snprintf(templ, sizeof(templ),
-                                "%s/root-pathtest-XXXXXX", tmpbase);
-    assert(templ_length > 0);
-    assert((size_t)templ_length < sizeof(templ));
+    int template_length = snprintf(templ, sizeof(templ),
+                                   "%s/root-pathtest-XXXXXX", tmpbase);
+    assert(template_length > 0);
+    assert((size_t)template_length < sizeof(templ));
 
     char *tmpdir = mkdtemp(templ);
     assert(tmpdir != NULL);
