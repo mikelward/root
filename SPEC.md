@@ -13,13 +13,14 @@ prioritizes predictability over flexibility: unlike `sudo`, it does not modify
 ## Synopsis
 
 ```
-root [-H | --nohome | --home] <command> [<argument>]...
+root [-d | -H | --debug | --nohome | --home] <command> [<argument>]...
 ```
 
 ## Command-Line Options
 
 | Option | Description |
 |--------|-------------|
+| `-d`, `--debug` | Enable debug logging. Shows all log messages (including `LOG_DEBUG` and `LOG_INFO`) on stderr. |
 | `-H`, `--nohome` | Do **not** set `HOME`. Leave it unchanged from the calling user's environment. |
 | `--home` | Set `HOME` to the target user's (root's) home directory. This is the **default**. Useful to override a previous `-H` in a shell alias. |
 
@@ -136,6 +137,8 @@ The calling user's username is included in syslog messages. Percent characters
 
 Messages are also written to stderr if their priority is at or above the
 threshold (`LOG_NOTICE` by default, meaning `LOG_ERR` and above are shown).
+The `-d`/`--debug` flag lowers the threshold to `LOG_DEBUG`, showing all
+messages on stderr.
 
 The `print()` function writes directly to stderr without going through syslog
 (used for user-facing messages like PATH safety warnings).

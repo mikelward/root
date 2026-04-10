@@ -3,6 +3,7 @@
 root \- run a command as the root user
 .SH SYNOPSIS
 .B root
+.RB [ \-d " | " \-\-debug ]
 .RB [ \-H " | " \-\-nohome " | " \-\-home ]
 .I command
 .RI [ argument ]...
@@ -19,6 +20,11 @@ which sometimes changes
 or
 .BR HOME .
 .SH OPTIONS
+.TP
+.BR \-d ", " \-\-debug
+Enable debug logging.
+Shows additional diagnostic messages on stderr,
+such as PATH searches and command resolution details.
 .TP
 .BR \-H ", " \-\-nohome
 Do not set the

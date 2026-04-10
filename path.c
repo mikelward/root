@@ -26,7 +26,7 @@ char *get_command_path(const char *command, const char *pathenv)
     size_t commandlen = strlen(command);
     char *pathenvcopy = strdup(pathenv);
     if (pathenvcopy == NULL) {
-        error("Cannot allocate memory to hold pathenv\n");
+        error("Cannot allocate memory to hold pathenv");
         return NULL;
     }
 
@@ -121,13 +121,13 @@ int is_absolute_path(const char *path)
 void pathenv_each(const char *pathenv, void (*func)(const char *pathentry))
 {
     if (pathenv == NULL) {
-        error("pathenv_each: pathenv is NULL\n");
+        error("pathenv_each: pathenv is NULL");
         return;
     }
 
     char *pathenvcopy = strdup(pathenv);
     if (pathenvcopy == NULL) {
-        error("Cannot allocate memory to hold pathenv\n");
+        error("Cannot allocate memory to hold pathenv");
         return;
     }
 

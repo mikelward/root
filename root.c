@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <unistd.h>
 
 #include "logging.h"
@@ -108,15 +109,19 @@ void process_args(int argc,
     }
 
     static const struct option long_options[] = {
+        {"debug",  no_argument, NULL, 'd'},
         {"home",   no_argument, NULL, 'h'},
         {"nohome", no_argument, NULL, 'H'},
         {NULL,     0,           NULL, 0}
     };
 
     int opt;
-    while ((opt = getopt_long(argc, (char *const *)argv, "+H",
+    while ((opt = getopt_long(argc, (char *const *)argv, "+dH",
                               long_options, NULL)) != -1) {
         switch (opt) {
+        case 'd':
+            setloglevel(LOG_DEBUG);
+            break;
         case 'h':
             set_home = 1;
             break;
@@ -386,7 +391,7 @@ void run_command(const char *absolute_command, const char *const *args)
 
 void usage(void)
 {
-    print("Usage: root [-H | --nohome | --home] <command> [<argument>]...\n");
+    print("Usage: root [-d | -H | --debug | --nohome | --home] <command> [<argument>]...\n");
 }
 
 /* vim: set ts=4 sw=4 tw=0 et:*/
