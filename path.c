@@ -29,12 +29,27 @@ char *get_command_path(const char *command, const char *pathenv)
         return NULL;
     }
 
-    for (char *dir = strtok(pathenvcopy, PATHENVSEP);
-         dir != NULL;
-         dir = strtok(NULL, PATHENVSEP)) {
+    char *remaining = pathenvcopy;
+    while (remaining != NULL) {
+        char *sep = strchr(remaining, PATHENVSEP[0]);
+        char *dir;
+        if (sep != NULL) {
+            *sep = '\0';
+            dir = remaining;
+            remaining = sep + 1;
+        }
+        else {
+            dir = remaining;
+            remaining = NULL;
+        }
 
-        int dirlen = strlen(dir);
-        char *path = malloc(dirlen+1+commandlen+1);
+        /* POSIX: an empty PATH entry means the current directory */
+        if (*dir == '\0') {
+            dir = ".";
+        }
+
+        size_t dirlen = strlen(dir);
+        char *path = malloc(dirlen + 1 + commandlen + 1);
         if (path == NULL) {
             error("Cannot allocate memory to hold path");
             free(pathenvcopy);
@@ -44,7 +59,7 @@ char *get_command_path(const char *command, const char *pathenv)
 
         /*debug("Looking in %s", path);*/
 
-        if (strcmp(path, "") != 0 && path[dirlen-1] != DIRSEP) {
+        if (path[dirlen - 1] != DIRSEP) {
             char dirsepstr[2];
             sprintf(dirsepstr, "%c", DIRSEP);
             strcat(path, dirsepstr);
@@ -52,7 +67,7 @@ char *get_command_path(const char *command, const char *pathenv)
         }
         strcat(path, command);
 
-        if (access(path, F_OK) == 0) {
+        if (access(path, X_OK) == 0) {
             /*debug("%s is %s", command, path);*/
 
             free(pathenvcopy);
@@ -65,9 +80,7 @@ char *get_command_path(const char *command, const char *pathenv)
     }
 
     debug("%s not found in PATH", command);
-    if (pathenvcopy != NULL) {
-        free(pathenvcopy);
-    }
+    free(pathenvcopy);
     return NULL;
 }
 
@@ -113,9 +126,24 @@ void pathenv_each(const char *pathenv, void (*func)(const char *pathentry))
 
     char *pathenvcopy = strdup(pathenv);
 
-    for (char *dir = strtok(pathenvcopy, PATHENVSEP);
-         dir != NULL;
-         dir = strtok(NULL, PATHENVSEP)) {
+    char *remaining = pathenvcopy;
+    while (remaining != NULL) {
+        char *sep = strchr(remaining, PATHENVSEP[0]);
+        char *dir;
+        if (sep != NULL) {
+            *sep = '\0';
+            dir = remaining;
+            remaining = sep + 1;
+        }
+        else {
+            dir = remaining;
+            remaining = NULL;
+        }
+
+        /* POSIX: an empty PATH entry means the current directory */
+        if (*dir == '\0') {
+            dir = ".";
+        }
 
         (*func)(dir);
     }
