@@ -341,7 +341,7 @@ void ensure_permitted(void)
             error("You must be in the %s group to run root", groupname);
         }
         else {
-            error("You must be in group %u to run root", (unsigned)ROOT_GID);
+            error("You must be in group %lu to run root", (unsigned long)ROOT_GID);
         }
         exit(ROOT_PERMISSION_DENIED);
     }
