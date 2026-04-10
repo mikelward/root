@@ -8,6 +8,10 @@ complex configuration and doesn't mess with your environment variables.
 
 Installation
 ------------
+To build, run `make`.
+
+If you want editor tags and have a compatible `ctags` installed, run `make tags`.
+
 To install, just run `make install` as root.
 
 You will require GNU make and a C99 compiler such as GCC.

@@ -2,9 +2,12 @@
 #define _BSD_SOURCE     /* for strdup() */
 
 #include <assert.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "path.h"
 
@@ -137,6 +140,33 @@ void test_is_unqualified_path(void)
     assert(!is_unqualified_path(NULL));
 }
 
+void test_get_command_path_rejects_empty_command(void)
+{
+    printf("Running %s\n", __func__);
+    assert(get_command_path("", "/bin") == NULL);
+    assert(get_command_path(NULL, "/bin") == NULL);
+}
+
+void test_get_command_path_ignores_directories(void)
+{
+    printf("Running %s\n", __func__);
+
+    char templ[] = "/tmp/root-pathtest-XXXXXX";
+    char *tmpdir = mkdtemp(templ);
+    assert(tmpdir != NULL);
+
+    char commanddir[PATH_MAX];
+    int length = snprintf(commanddir, sizeof(commanddir), "%s/fakecmd", tmpdir);
+    assert(length > 0);
+    assert((size_t)length < sizeof(commanddir));
+    assert(mkdir(commanddir, 0700) == 0);
+
+    assert(get_command_path("fakecmd", tmpdir) == NULL);
+
+    assert(rmdir(commanddir) == 0);
+    assert(rmdir(tmpdir) == 0);
+}
+
 int main(int argc, const char *argv[])
 {
     test_pathenv_each_basic();
@@ -148,6 +178,8 @@ int main(int argc, const char *argv[])
     test_is_absolute_path();
     test_is_qualified_path();
     test_is_unqualified_path();
+    test_get_command_path_rejects_empty_command();
+    test_get_command_path_ignores_directories();
 
     return 0;
 }

@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "root.h"
@@ -23,6 +24,15 @@
  */
 char *get_command_path(const char *command, const char *pathenv)
 {
+    if (command == NULL || *command == '\0') {
+        error("get_command_path: command is empty");
+        return NULL;
+    }
+    if (pathenv == NULL) {
+        error("get_command_path: pathenv is NULL");
+        return NULL;
+    }
+
     size_t commandlen = strlen(command);
     char *pathenvcopy = strdup(pathenv);
     if (pathenvcopy == NULL) {
@@ -69,6 +79,16 @@ char *get_command_path(const char *command, const char *pathenv)
         strcat(path, command);
 
         if (access(path, X_OK) == 0) {
+            struct stat st;
+            if (stat(path, &st) == -1) {
+                free(path);
+                continue;
+            }
+            if (S_ISDIR(st.st_mode)) {
+                free(path);
+                continue;
+            }
+
             /*debug("%s is %s", command, path);*/
 
             free(pathenvcopy);
