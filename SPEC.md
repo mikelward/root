@@ -72,7 +72,9 @@ Examples: `/bin/ls`, `./mycommand`, `../bin/test`
 Examples: `ls`, `cat`, `grep`
 
 - Looked up in the `PATH` environment variable.
-- The first matching executable (checked via `access(path, X_OK)`) is used.
+- The first matching executable file (checked via `access(path, X_OK)`) is used.
+- Directories are never treated as runnable commands, even if they have execute
+  permission.
 - The resolved path **must be absolute**. If the match came from a relative
   `PATH` entry (e.g. `.`, `""`, or `bin` instead of `/bin`), the command is
   **rejected** (see [PATH Safety](#path-safety)).
@@ -187,6 +189,9 @@ On BSD and macOS, use group `wheel`:
 ```
 make install INSTALL_GROUP=wheel
 ```
+
+Building the project does not require `ctags`; generating tags is an optional
+developer convenience via `make tags`.
 
 ## Shell Alias Tip
 

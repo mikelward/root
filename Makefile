@@ -4,7 +4,7 @@ MANDIR=$(PREFIX)/share/man/man1
 CC=cc
 CFLAGS=-std=c99 -Wall -Werror
 
-all: tags test root
+all: test root
 
 tags: *.c *.h
 	ctags -f $@ *.c *.h
@@ -43,4 +43,3 @@ clean:
 
 clobber: clean
 	-rm root loggingtest pathtest
-
