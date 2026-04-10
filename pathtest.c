@@ -151,7 +151,17 @@ void test_get_command_path_ignores_directories(void)
 {
     printf("Running %s\n", __func__);
 
-    char templ[] = "/tmp/root-pathtest-XXXXXX";
+    const char *tmpbase = getenv("TMPDIR");
+    if (tmpbase == NULL || *tmpbase == '\0') {
+        tmpbase = "/tmp";
+    }
+
+    char templ[PATH_MAX];
+    int templ_length = snprintf(templ, sizeof(templ),
+                                "%s/root-pathtest-XXXXXX", tmpbase);
+    assert(templ_length > 0);
+    assert((size_t)templ_length < sizeof(templ));
+
     char *tmpdir = mkdtemp(templ);
     assert(tmpdir != NULL);
 
@@ -161,7 +171,9 @@ void test_get_command_path_ignores_directories(void)
     assert((size_t)length < sizeof(commanddir));
     assert(mkdir(commanddir, 0700) == 0);
 
-    assert(get_command_path("fakecmd", tmpdir) == NULL);
+    char *path = get_command_path("fakecmd", tmpdir);
+    assert(path == NULL);
+    free(path);
 
     assert(rmdir(commanddir) == 0);
     assert(rmdir(tmpdir) == 0);

@@ -81,6 +81,7 @@ char *get_command_path(const char *command, const char *pathenv)
         if (access(path, X_OK) == 0) {
             struct stat st;
             if (stat(path, &st) == -1) {
+                error("Cannot stat %s: %s", path, strerror(errno));
                 free(path);
                 continue;
             }
