@@ -173,7 +173,6 @@ void test_get_command_path_ignores_directories(void)
 
     char *path = get_command_path("fakecmd", tmpdir);
     assert(path == NULL);
-    free(path);
 
     assert(rmdir(commanddir) == 0);
     assert(rmdir(tmpdir) == 0);
