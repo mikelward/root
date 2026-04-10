@@ -25,6 +25,9 @@ void initlog(const char *name)
 {
     openlog(name, LOG_CONS|LOG_PID, LOG_AUTHPRIV);
     g_progname = strdup(name);
+    if (g_progname == NULL) {
+        fprintf(stderr, "root: Cannot allocate memory for program name\n");
+    }
 }
 
 /*
@@ -61,7 +64,16 @@ void writelog(int priority, const char *format, va_list ap)
 
     ruid = getuid();
     escapedusername = escape_percents(get_username(ruid));
+    if (escapedusername == NULL) {
+        vsyslog(priority, format, ap);
+        return;
+    }
     logformat = makeformat(escapedusername, format, "");
+    if (logformat == NULL) {
+        free(escapedusername);
+        vsyslog(priority, format, ap);
+        return;
+    }
 
     vsyslog(priority, logformat, ap);
 
@@ -81,7 +93,18 @@ void writescreen(int priority, const char *format, va_list ap)
     }
 
     escapedprogname = escape_percents(g_progname);
+    if (escapedprogname == NULL) {
+        vfprintf(stderr, format, ap);
+        fprintf(stderr, "\n");
+        return;
+    }
     screenformat = makeformat(escapedprogname, format, "\n");
+    if (screenformat == NULL) {
+        free(escapedprogname);
+        vfprintf(stderr, format, ap);
+        fprintf(stderr, "\n");
+        return;
+    }
     vfprintf(stderr, screenformat, ap);
 
     free(escapedprogname);

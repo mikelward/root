@@ -15,8 +15,9 @@
  * Return the full path to command found by searching for it in pathenv,
  * and returning the first match.
  *
- * If command is found via a non-absolute path in PATH, return NULL.
- * This is to prevent security issues arising from "" or "." in PATH.
+ * If command is found via a relative path in PATH (e.g. "" or "."),
+ * the relative path is still returned. The caller is responsible for
+ * checking whether the result is safe (e.g. via is_absolute_path()).
  *
  * If the string returned is not NULL, it must be freed by the caller.
  */
@@ -125,6 +126,10 @@ void pathenv_each(const char *pathenv, void (*func)(const char *pathentry))
     }
 
     char *pathenvcopy = strdup(pathenv);
+    if (pathenvcopy == NULL) {
+        error("Cannot allocate memory to hold pathenv\n");
+        return;
+    }
 
     char *remaining = pathenvcopy;
     while (remaining != NULL) {

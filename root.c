@@ -351,7 +351,10 @@ void become_root(void)
             exit(ROOT_SYSTEM_ERROR);
         }
     }
-    setup_groups(ROOT_UID);
+    if (!setup_groups(ROOT_UID)) {
+        error("Cannot set up groups");
+        exit(ROOT_SYSTEM_ERROR);
+    }
 
     if (!become_user(ROOT_UID)) {
         error("Cannot become root");
