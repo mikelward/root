@@ -93,7 +93,7 @@ char *get_command_path(const char *command, const char *pathenv)
  */
 int is_unqualified_path(const char *path)
 {
-    return !is_qualified_path(path);
+    return path != NULL && strchr(path, DIRSEP) == NULL;
 }
 
 /**

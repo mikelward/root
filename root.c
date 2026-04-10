@@ -34,8 +34,7 @@ static void process_args(int argc,
 static void get_command_to_run(const char *command, char **absolute_commandp);
 static void find_and_verify_command(const char *command, char **path_commandp);
 static void get_absolute_command(const char *qualified_command,
-                                 char **absolute_command);
-static void find_and_verify_command(const char *command, char **path_command);
+                                 char **absolute_commandp);
 static int command_is_safe(const char *path_command);
 static void print_unsafe_path_entries(const char *pathenv);
 static void ensure_permitted(void);
@@ -144,7 +143,7 @@ void process_args(int argc,
 
     const char *command = argv[0];
     if (command == NULL || *command == '\0') {
-        error("Command is NULL");
+        error("Command is empty");
         exit(ROOT_INVALID_USAGE);
     }
 
