@@ -151,8 +151,8 @@ int become_user(uid_t uid)
      * ruid = root, euid = root, suid = root
      */
     errno = 0;
-    if (setuid(ROOT_UID) == -1) {
-        error("Cannot setuid %lu: %s", (unsigned long)ROOT_UID, strerror(errno));
+    if (setuid(uid) == -1) {
+        error("Cannot setuid %lu: %s", (unsigned long)uid, strerror(errno));
         exit(ROOT_SYSTEM_ERROR);
     }
     return 1;

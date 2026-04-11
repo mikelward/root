@@ -13,7 +13,7 @@ prioritizes predictability over flexibility: unlike `sudo`, it does not modify
 ## Synopsis
 
 ```
-root [-d | -H | --debug | --nohome | --home] <command> [<argument>]...
+root [-d | --debug] [-H | --nohome | --home] <command> [<argument>]...
 ```
 
 ## Command-Line Options

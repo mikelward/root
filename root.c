@@ -391,7 +391,7 @@ void run_command(const char *absolute_command, const char *const *args)
 
 void usage(void)
 {
-    print("Usage: root [-d | -H | --debug | --nohome | --home] <command> [<argument>]...\n");
+    print("Usage: root [-d | --debug] [-H | --nohome | --home] <command> [<argument>]...\n");
 }
 
 /* vim: set ts=4 sw=4 tw=0 et:*/
