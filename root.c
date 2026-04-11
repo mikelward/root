@@ -295,6 +295,8 @@ void find_and_verify_command(const char *command, char **path_commandp)
         print_unsafe_path_entries(pathenv);
         print("Or run the command using an absolute path\n");
         print("Run \"man root\" for more details\n");
+        free(absolute_command);
+        free(path_command);
         exit(ROOT_RELATIVE_PATH_DISALLOWED);
     }
 
@@ -321,7 +323,7 @@ int command_is_safe(const char *path_command)
     return is_absolute_path(path_command);
 }
 
-void print_if_unsafe(const char *dir)
+static void print_if_unsafe(const char *dir)
 {
     if (!command_is_safe(dir)) {
         print(" \"%s\"", dir);
