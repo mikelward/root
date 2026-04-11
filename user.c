@@ -34,39 +34,38 @@ int in_group(gid_t root_gid)
         return 1;
     }
     else {
-        long ngroups_max;
+        int ngroups;
+        gid_t *grouplist;
+
         errno = 0;
-        ngroups_max = sysconf(_SC_NGROUPS_MAX);
-        if (ngroups_max == -1) {
-            error("Cannot determine maximum number of groups: %s",
-                  strerror(errno));
+        ngroups = getgroups(0, NULL);
+        if (ngroups == -1) {
+            error("Cannot get number of groups: %s", strerror(errno));
             exit(ROOT_SYSTEM_ERROR);
         }
-        else {
-            int ngroups;
-            gid_t *grouplist = malloc(ngroups_max * sizeof(gid_t));
-            if (grouplist == NULL) {
-                error("Cannot allocate memory for group list");
-                exit(ROOT_SYSTEM_ERROR);
-            }
 
-            errno = 0;
-            ngroups = getgroups(ngroups_max, grouplist);
-            if (ngroups == -1) {
-                error("Cannot get group list: %s", strerror(errno));
-                free(grouplist);
-                exit(ROOT_SYSTEM_ERROR);
-            }
-
-            for (int i = 0; i < ngroups; i++) {
-                if (grouplist[i] == root_gid) {
-                    free(grouplist);
-                    return 1;
-                }
-            }
-            free(grouplist);
-            return 0;
+        grouplist = malloc(ngroups * sizeof(gid_t));
+        if (grouplist == NULL) {
+            error("Cannot allocate memory for group list");
+            exit(ROOT_SYSTEM_ERROR);
         }
+
+        errno = 0;
+        ngroups = getgroups(ngroups, grouplist);
+        if (ngroups == -1) {
+            error("Cannot get group list: %s", strerror(errno));
+            free(grouplist);
+            exit(ROOT_SYSTEM_ERROR);
+        }
+
+        for (int i = 0; i < ngroups; i++) {
+            if (grouplist[i] == root_gid) {
+                free(grouplist);
+                return 1;
+            }
+        }
+        free(grouplist);
+        return 0;
     }
 }
 
