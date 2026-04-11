@@ -42,8 +42,8 @@ Option parsing uses POSIX `+` prefix to stop at the first non-option argument
    [Permission Model](#permission-model)).
 
 5. **Log the action** - Log the command being run (at `LOG_INFO` level) to
-   syslog and stderr. This happens *before* becoming root so the log includes
-   the calling user's identity.
+   syslog. This happens *before* becoming root so the log includes the calling
+   user's identity.
 
 6. **Become root:**
    - Optionally set `HOME` to root's home directory (default: yes).
@@ -136,8 +136,7 @@ The calling user's username is included in syslog messages. Percent characters
 ### Stderr
 
 Messages are also written to stderr if their priority is at or above the
-threshold (`LOG_NOTICE` by default, meaning `LOG_ERR`, `LOG_WARNING`, and
-`LOG_NOTICE` and above are shown).
+threshold (`LOG_ERR` by default, meaning only `LOG_ERR` and above are shown).
 The `-d`/`--debug` flag lowers the threshold to `LOG_DEBUG`, showing all
 messages on stderr.
 
