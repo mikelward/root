@@ -98,6 +98,13 @@ void test_pathenv_each_all_empty(void)
     reset_entries();
 }
 
+void test_pathenv_each_null_func(void)
+{
+    printf("Running %s\n", __func__);
+    pathenv_each("/usr/bin:/bin", NULL);
+    /* no assert needed: this test verifies it does not crash */
+}
+
 /*
  * is_absolute_path tests
  */
@@ -145,6 +152,7 @@ int main(int argc, const char *argv[])
     test_pathenv_each_empty_end();
     test_pathenv_each_empty_middle();
     test_pathenv_each_all_empty();
+    test_pathenv_each_null_func();
     test_is_absolute_path();
     test_is_qualified_path();
     test_is_unqualified_path();

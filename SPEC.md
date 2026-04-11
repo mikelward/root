@@ -229,3 +229,8 @@ alias root='root '   # trailing space enables alias expansion
 
 6. **Portability** - Uses POSIX-standard C99 and avoids GNU-specific extensions
    so the code builds and runs on Linux, BSD, and macOS.
+
+## Internal Robustness
+
+- Internal PATH iteration helpers validate their inputs and fail safely when
+  called with invalid arguments (for example, a `NULL` callback).

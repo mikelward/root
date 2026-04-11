@@ -133,6 +133,10 @@ void pathenv_each(const char *pathenv, void (*func)(const char *pathentry))
         error("pathenv_each: pathenv is NULL");
         return;
     }
+    if (func == NULL) {
+        error("pathenv_each: func is NULL");
+        return;
+    }
 
     char *pathenvcopy = strdup(pathenv);
     if (pathenvcopy == NULL) {
