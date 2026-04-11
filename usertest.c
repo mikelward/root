@@ -13,6 +13,10 @@ void test_in_group_matches_primary_gid(void)
 void test_become_user_non_root_rejected(void)
 {
     printf("Running %s\n", __func__);
+    if (getuid() == 0) {
+        printf("Skipping %s when running as root\n", __func__);
+        return;
+    }
     assert(!become_user(1));
 }
 
