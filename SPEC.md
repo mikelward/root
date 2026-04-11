@@ -235,3 +235,6 @@ alias root='root '   # trailing space enables alias expansion
 
 - Internal PATH iteration helpers validate their inputs and fail safely when
   called with invalid arguments (for example, a `NULL` callback).
+- Group-membership checks size the supplementary-group buffer using
+  `getgroups(0, NULL)` instead of relying on `_SC_NGROUPS_MAX`, so they work on
+  systems where that limit is indeterminate.
