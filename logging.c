@@ -13,7 +13,7 @@
 
 #include "logging.h"
 
-int loglevel = LOG_NOTICE;        /* only print NOTICE, ERROR, CRIT, ... */
+int loglevel = LOG_ERR;           /* only print ERROR, CRIT, ... */
 static const char *g_progname;    /* XXX? maybe share this with root.o */
 
 void setloglevel(int level)

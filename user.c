@@ -13,7 +13,7 @@
 #include "root.h"
 #include "user.h"
 
-char *get_group_name(gid_t gid)
+const char *get_group_name(gid_t gid)
 {
     struct group *gp = getgrgid(gid);
     if (gp != NULL && gp->gr_name != NULL) {

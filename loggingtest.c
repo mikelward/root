@@ -62,15 +62,15 @@ void testsetloglevel(void)
 {
     printf("Running %s\n", __func__);
 
-    /* default level is LOG_NOTICE */
-    assert(loglevel == LOG_NOTICE);
+    /* default level is LOG_ERR */
+    assert(loglevel == LOG_ERR);
 
     setloglevel(LOG_DEBUG);
     assert(loglevel == LOG_DEBUG);
 
     /* restore default */
-    setloglevel(LOG_NOTICE);
-    assert(loglevel == LOG_NOTICE);
+    setloglevel(LOG_ERR);
+    assert(loglevel == LOG_ERR);
 }
 
 /* vim: set ts=4 sw=4 tw=0 et:*/
