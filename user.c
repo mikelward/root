@@ -85,7 +85,11 @@ int setup_groups(uid_t uid)
     errno = 0;
     ps = getpwuid(uid);
     if (ps == NULL) {
-        error("Cannot get passwd info for uid %lu: %s", (unsigned long)uid, strerror(errno));
+        if (errno != 0) {
+            error("Cannot get passwd info for uid %lu: %s", (unsigned long)uid, strerror(errno));
+        } else {
+            error("Cannot get passwd info for uid %lu", (unsigned long)uid);
+        }
         exit(ROOT_SYSTEM_ERROR);
     }
 
@@ -120,7 +124,11 @@ int set_home_dir(uid_t uid)
     errno = 0;
     ps = getpwuid(uid);
     if (ps == NULL) {
-        error("Cannot get passwd info for uid %lu: %s", (unsigned long)uid, strerror(errno));
+        if (errno != 0) {
+            error("Cannot get passwd info for uid %lu: %s", (unsigned long)uid, strerror(errno));
+        } else {
+            error("Cannot get passwd info for uid %lu", (unsigned long)uid);
+        }
         exit(ROOT_SYSTEM_ERROR);
     }
 

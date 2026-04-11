@@ -32,7 +32,7 @@ void writescreen(int priority, const char *format, va_list ap);
  */
 void print(const char *format, ...);
 
-char *get_username(uid_t uid);
+const char *get_username(uid_t uid);
 
 char *escape_percents(const char *string);
 

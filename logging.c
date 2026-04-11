@@ -35,7 +35,7 @@ void initlog(const char *name)
  *
  * Caller must free returned string.
  */
-char *makeformat(const char *tag, const char *format, const char *suffix)
+static char *makeformat(const char *tag, const char *format, const char *suffix)
 {
     char *fmt = NULL; size_t fmtmax, fmtlen;
 
@@ -163,7 +163,7 @@ void print(const char *format, ...)
     va_end(ap);
 }
 
-char *get_username(uid_t uid)
+const char *get_username(uid_t uid)
 {
     struct passwd *ppw = getpwuid(uid);
     if (ppw == NULL) {

@@ -136,7 +136,8 @@ The calling user's username is included in syslog messages. Percent characters
 ### Stderr
 
 Messages are also written to stderr if their priority is at or above the
-threshold (`LOG_NOTICE` by default, meaning `LOG_ERR` and above are shown).
+threshold (`LOG_NOTICE` by default, meaning `LOG_ERR`, `LOG_WARNING`, and
+`LOG_NOTICE` and above are shown).
 The `-d`/`--debug` flag lowers the threshold to `LOG_DEBUG`, showing all
 messages on stderr.
 
