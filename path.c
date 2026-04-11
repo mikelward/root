@@ -73,7 +73,6 @@ char *get_command_path(const char *command, const char *pathenv)
             char dirsepstr[2];
             sprintf(dirsepstr, "%c", DIRSEP);
             strcat(path, dirsepstr);
-            dirlen++;
         }
         strcat(path, command);
 

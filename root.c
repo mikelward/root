@@ -26,7 +26,7 @@
 
 static int set_home = 1;
 
-static void setup_logging();
+static void setup_logging(void);
 static void process_args(int argc,
                          const char *const *argv,
                          char **absolute_commandp,
@@ -68,7 +68,7 @@ int main(int argc, const char *const *argv)
     return 0;
 }
 
-void setup_logging()
+void setup_logging(void)
 {
     initlog(PROGNAME);
 }
