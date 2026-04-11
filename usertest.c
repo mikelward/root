@@ -16,7 +16,7 @@ void test_become_user_non_root_rejected(void)
     assert(!become_user(1));
 }
 
-int main(int argc, const char *argv[])
+int main(void)
 {
     test_in_group_matches_primary_gid();
     test_become_user_non_root_rejected();

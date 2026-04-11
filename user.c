@@ -44,6 +44,9 @@ int in_group(gid_t root_gid)
                   strerror(errno));
             exit(ROOT_SYSTEM_ERROR);
         }
+        if (ngroups == 0) {
+            return 0;
+        }
 
         grouplist = malloc((size_t)ngroups * sizeof(gid_t));
         if (grouplist == NULL) {
