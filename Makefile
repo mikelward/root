@@ -35,6 +35,8 @@ INSTALL_GROUP?=root
 install:
 	install -d $(BINDIR)
 	install -o root -g $(INSTALL_GROUP) -m 4755 root $(BINDIR)
+	# Work around uutils install stripping setuid: https://github.com/uutils/coreutils/issues/9134
+	chmod 4755 $(BINDIR)/root
 	install -d $(MANDIR)
 	install -o root -g $(INSTALL_GROUP) -m 644 root.1 $(MANDIR)
 
