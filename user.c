@@ -44,6 +44,11 @@ int in_group(gid_t root_gid)
             exit(ROOT_SYSTEM_ERROR);
         }
 
+        /* avoid malloc(0), whose result is implementation-defined */
+        if (ngroups == 0) {
+            return 0;
+        }
+
         grouplist = malloc(ngroups * sizeof(gid_t));
         if (grouplist == NULL) {
             error("Cannot allocate memory for group list");
