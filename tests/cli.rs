@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+
 use std::os::unix::fs::PermissionsExt;
 use std::process::Command;
 
