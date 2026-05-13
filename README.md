@@ -10,7 +10,7 @@ Installation
 ------------
 To install, just run `make install` as root.
 
-You will require GNU make and a C99 compiler such as GCC.
+You will require GNU make and a stable Rust toolchain (cargo + rustc).
 
 Configuration
 -------------

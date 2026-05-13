@@ -1,38 +1,22 @@
 PREFIX=/usr/local
 BINDIR=$(PREFIX)/bin
 MANDIR=$(PREFIX)/share/man/man1
-CC=cc
-CFLAGS=-std=c99 -Wall -Werror
+CARGO=cargo
 
-all: tags test root
+RUST_SOURCES = $(wildcard src/*.rs) Cargo.toml
 
-tags: *.c *.h
-	ctags -f $@ *.c *.h
+all: test root
 
-test: loggingtest pathtest
+test:
+	$(CARGO) test --release
 
-loggingtest: loggingtest.o logging.o
-	$(CC) $(LDFLAGS) -o $@ loggingtest.o logging.o
-	./$@
-
-pathtest: pathtest.o path.o logging.o
-	$(CC) $(LDFLAGS) -o $@ pathtest.o path.o logging.o
-	./$@
-
-root: root.o user.o path.o logging.o
-	$(CC) $(LDFLAGS) -o $@ root.o user.o path.o logging.o
-
-# Header dependencies
-root.o: root.h logging.h path.h user.h
-user.o: user.h root.h logging.h
-path.o: path.h root.h logging.h
-logging.o: logging.h
-loggingtest.o: logging.h
-pathtest.o: path.h
+root: $(RUST_SOURCES)
+	$(CARGO) build --release
+	cp target/release/root ./root
 
 INSTALL_GROUP?=root
 
-install:
+install: root
 	install -d $(BINDIR)
 	install -o root -g $(INSTALL_GROUP) -m 4755 root $(BINDIR)
 	# Work around uutils install stripping setuid: https://github.com/uutils/coreutils/issues/9134
@@ -41,8 +25,10 @@ install:
 	install -o root -g $(INSTALL_GROUP) -m 644 root.1 $(MANDIR)
 
 clean:
-	-rm *.o
+	$(CARGO) clean
+	-rm -f root
 
 clobber: clean
-	-rm root loggingtest pathtest
+	-rm -rf target
 
+.PHONY: all test install clean clobber
