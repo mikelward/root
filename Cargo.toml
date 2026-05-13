@@ -1,0 +1,21 @@
+[package]
+name = "root"
+version = "1.0.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Simple setuid alternative to sudo for members of group 0"
+
+[[bin]]
+name = "root"
+path = "src/main.rs"
+
+[dependencies]
+libc = "0.2"
+nix = { version = "0.29", features = ["user", "fs", "process"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+strip = true
+lto = true

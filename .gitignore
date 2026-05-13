@@ -1,5 +1,2 @@
-*.o
-loggingtest
-pathtest
-root
-tags
+/target
+/root

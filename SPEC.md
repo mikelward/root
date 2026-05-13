@@ -161,12 +161,17 @@ found).
 
 ## Portability
 
-`root` is written in standard C99 and targets POSIX systems. It builds and runs
-on:
+`root` is written in Rust (2021 edition) and targets POSIX systems. It builds
+and runs on:
 
 - **Linux** (glibc, musl)
 - **FreeBSD** / **OpenBSD** / **NetBSD**
 - **macOS** (Darwin)
+
+The Rust implementation depends on `libc` (for `openlog`/`syslog`) and `nix`
+(for `setuid`, `setgid`, `initgroups`, `access`, `execv`, and the
+`User`/`Group` lookups). Argument parsing is hand-rolled to support POSIX `+`
+semantics (options stop at the first non-option).
 
 ### Portability notes
 
@@ -200,15 +205,17 @@ alias root='root '   # trailing space enables alias expansion
 
 | File | Purpose |
 |------|---------|
-| `root.c` | Main entry point, argument parsing, command resolution, execution |
-| `root.h` | Constants: program name, UIDs/GIDs, exit codes |
-| `user.c` | Group membership checks, UID/GID switching, HOME directory setting |
-| `user.h` | User management function declarations |
-| `path.c` | PATH searching, path classification (qualified/absolute/unqualified) |
-| `path.h` | Path utility declarations and constants (`DIRSEP`, `PATHENVSEP`) |
-| `logging.c` | Syslog and stderr logging, format string escaping |
-| `logging.h` | Logging function declarations |
+| `Cargo.toml` | Rust package manifest (deps: `libc`, `nix`, dev-dep `tempfile`) |
+| `Makefile` | Wraps `cargo build --release` and handles the setuid `install` step |
+| `src/main.rs` | Entry point, top-level flow, command resolution, execution |
+| `src/args.rs` | Argument parsing (`-d`/`--debug`, `-H`/`--nohome`, `--home`) |
+| `src/path.rs` | PATH searching, path classification (qualified/absolute/unqualified) |
+| `src/user.rs` | Group membership checks, UID/GID switching, HOME directory setting |
+| `src/logging.rs` | Syslog and stderr logging, format string escaping |
+| `src/exit_code.rs` | Exit-code constants |
+| `tests/cli.rs` | Integration tests for the CLI surface |
 | `root.1` | Man page |
+| `legacy/` | The previous C99 implementation, kept for reference |
 
 ## Design Principles
 
@@ -224,11 +231,12 @@ alias root='root '   # trailing space enables alias expansion
 4. **Auditability** - All invocations are logged to syslog with the calling
    user's identity.
 
-5. **Minimal attack surface** - Small C codebase, no external dependencies
-   beyond libc, strict compiler warnings (`-Wall -Werror`).
+5. **Minimal attack surface** - Small Rust codebase. `unsafe` is confined to
+   the syslog FFI calls (`openlog`/`syslog`); all other system calls go
+   through safe `nix` wrappers.
 
-6. **Portability** - Uses POSIX-standard C99 and avoids GNU-specific extensions
-   so the code builds and runs on Linux, BSD, and macOS.
+6. **Portability** - Uses POSIX APIs via `nix` and avoids OS-specific
+   extensions so the code builds and runs on Linux, BSD, and macOS.
 
 ## Internal Robustness
 
