@@ -161,7 +161,7 @@ found).
 
 ## Portability
 
-`root` is written in standard C99 and targets POSIX systems. It builds and runs
+`root` is written in Go (1.22+) and targets POSIX systems. It builds and runs
 on:
 
 - **Linux** (glibc, musl)
@@ -200,14 +200,10 @@ alias root='root '   # trailing space enables alias expansion
 
 | File | Purpose |
 |------|---------|
-| `root.c` | Main entry point, argument parsing, command resolution, execution |
-| `root.h` | Constants: program name, UIDs/GIDs, exit codes |
-| `user.c` | Group membership checks, UID/GID switching, HOME directory setting |
-| `user.h` | User management function declarations |
-| `path.c` | PATH searching, path classification (qualified/absolute/unqualified) |
-| `path.h` | Path utility declarations and constants (`DIRSEP`, `PATHENVSEP`) |
-| `logging.c` | Syslog and stderr logging, format string escaping |
-| `logging.h` | Logging function declarations |
+| `main.go` | Main entry point, argument parsing, command resolution, execution; exit-code constants |
+| `user.go` | Group membership checks, UID/GID switching, HOME directory setting |
+| `path.go` | PATH searching and path classification (qualified/absolute/unqualified) |
+| `logging.go` | Syslog and stderr logging |
 | `root.1` | Man page |
 
 ## Design Principles
@@ -224,11 +220,11 @@ alias root='root '   # trailing space enables alias expansion
 4. **Auditability** - All invocations are logged to syslog with the calling
    user's identity.
 
-5. **Minimal attack surface** - Small C codebase, no external dependencies
-   beyond libc, strict compiler warnings (`-Wall -Werror`).
+5. **Minimal attack surface** - Small Go codebase, no third-party
+   dependencies beyond the standard library, memory-safe by construction.
 
-6. **Portability** - Uses POSIX-standard C99 and avoids GNU-specific extensions
-   so the code builds and runs on Linux, BSD, and macOS.
+6. **Portability** - Uses only the Go standard library so the code builds and
+   runs on Linux, BSD, and macOS.
 
 ## Internal Robustness
 
