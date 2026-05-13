@@ -1,38 +1,19 @@
-PREFIX=/usr/local
-BINDIR=$(PREFIX)/bin
-MANDIR=$(PREFIX)/share/man/man1
-CC=cc
-CFLAGS=-std=c99 -Wall -Werror
+PREFIX ?= /usr/local
+BINDIR ?= $(PREFIX)/bin
+MANDIR ?= $(PREFIX)/share/man/man1
+INSTALL_GROUP ?= root
 
-all: tags test root
+GO ?= go
 
-tags: *.c *.h
-	ctags -f $@ *.c *.h
+all: test root
 
-test: loggingtest pathtest
+root: $(wildcard *.go) go.mod
+	$(GO) build -trimpath -o root .
 
-loggingtest: loggingtest.o logging.o
-	$(CC) $(LDFLAGS) -o $@ loggingtest.o logging.o
-	./$@
+test:
+	$(GO) test ./...
 
-pathtest: pathtest.o path.o logging.o
-	$(CC) $(LDFLAGS) -o $@ pathtest.o path.o logging.o
-	./$@
-
-root: root.o user.o path.o logging.o
-	$(CC) $(LDFLAGS) -o $@ root.o user.o path.o logging.o
-
-# Header dependencies
-root.o: root.h logging.h path.h user.h
-user.o: user.h root.h logging.h
-path.o: path.h root.h logging.h
-logging.o: logging.h
-loggingtest.o: logging.h
-pathtest.o: path.h
-
-INSTALL_GROUP?=root
-
-install:
+install: root
 	install -d $(BINDIR)
 	install -o root -g $(INSTALL_GROUP) -m 4755 root $(BINDIR)
 	# Work around uutils install stripping setuid: https://github.com/uutils/coreutils/issues/9134
@@ -41,8 +22,6 @@ install:
 	install -o root -g $(INSTALL_GROUP) -m 644 root.1 $(MANDIR)
 
 clean:
-	-rm *.o
+	-rm -f root
 
-clobber: clean
-	-rm root loggingtest pathtest
-
+.PHONY: all test install clean
