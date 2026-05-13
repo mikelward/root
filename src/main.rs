@@ -1,6 +1,7 @@
 #![deny(unsafe_code)]
 
-use std::ffi::CString;
+use std::ffi::{CString, OsStr, OsString};
+use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 
 use nix::unistd::execv;
@@ -18,12 +19,12 @@ const ROOT_GID: u32 = 0;
 fn main() {
     logging::init(PROGNAME);
 
-    let argv: Vec<String> = std::env::args().collect();
+    let argv: Vec<OsString> = std::env::args_os().collect();
 
     let (opts, command_args) = match args::parse(&argv) {
         Ok(v) => v,
         Err(args::ParseError::UnknownOption(o)) => {
-            error!("Unknown option: {o}");
+            error!("Unknown option: {}", o.to_string_lossy());
             usage();
             std::process::exit(exit_code::INVALID_USAGE);
         }
@@ -44,7 +45,7 @@ fn main() {
         std::process::exit(exit_code::INVALID_USAGE);
     }
 
-    debug!("Command to run is {command}");
+    debug!("Command to run is {}", command.to_string_lossy());
 
     let absolute_command = resolve_command(command);
 
@@ -58,51 +59,59 @@ fn main() {
     exec_command(&absolute_command, &command_args);
 }
 
-fn resolve_command(command: &str) -> PathBuf {
+fn resolve_command(command: &OsStr) -> PathBuf {
     if path::is_qualified_path(command) {
         get_absolute_command(command)
     } else {
         let resolved = find_and_verify_command(command);
-        get_absolute_command(resolved.to_string_lossy().as_ref())
+        get_absolute_command(resolved.as_os_str())
     }
 }
 
-fn get_absolute_command(qualified: &str) -> PathBuf {
+fn get_absolute_command(qualified: &OsStr) -> PathBuf {
     match std::fs::canonicalize(qualified) {
         Ok(p) => p,
         Err(e) => {
-            error!("Cannot determine real path to {qualified}: {e}");
+            error!(
+                "Cannot determine real path to {}: {e}",
+                qualified.to_string_lossy()
+            );
             std::process::exit(exit_code::COMMAND_NOT_FOUND);
         }
     }
 }
 
-fn find_and_verify_command(command: &str) -> PathBuf {
-    let pathenv = match std::env::var("PATH") {
-        Ok(v) => v,
-        Err(_) => {
+fn find_and_verify_command(command: &OsStr) -> PathBuf {
+    let pathenv = match std::env::var_os("PATH") {
+        Some(v) => v,
+        None => {
             error!("Cannot get PATH environment variable");
             std::process::exit(exit_code::SYSTEM_ERROR);
         }
     };
 
-    debug!("Searching for command in PATH={pathenv}");
+    debug!(
+        "Searching for command in PATH={}",
+        pathenv.to_string_lossy()
+    );
     let path_command = match path::get_command_path(command, &pathenv) {
         Some(p) => p,
         None => {
-            error!("Cannot find {command} in PATH");
+            error!("Cannot find {} in PATH", command.to_string_lossy());
             std::process::exit(exit_code::COMMAND_NOT_FOUND);
         }
     };
 
-    let path_str = path_command.to_string_lossy();
-    if !path::is_absolute_path(&path_str) {
-        error!("Attempt to run relative PATH command {path_str}");
-        let absolute = std::fs::canonicalize(&path_command)
-            .map(|p| p.to_string_lossy().into_owned())
-            .unwrap_or_else(|_| path_str.to_string());
+    if !path::is_absolute_path(path_command.as_os_str()) {
+        error!(
+            "Attempt to run relative PATH command {}",
+            path_command.display()
+        );
+        let absolute = std::fs::canonicalize(&path_command).unwrap_or_else(|_| path_command.clone());
         print_stderr!(
-            "You tried to run {command}, but this would run {absolute}\n"
+            "You tried to run {}, but this would run {}\n",
+            command.to_string_lossy(),
+            absolute.display()
         );
         print_stderr!("This has been prevented because it is potentially unsafe\n");
         print_stderr!("Consider removing the following entries from your PATH:");
@@ -115,10 +124,10 @@ fn find_and_verify_command(command: &str) -> PathBuf {
     path_command
 }
 
-fn print_unsafe_path_entries(pathenv: &str) {
+fn print_unsafe_path_entries(pathenv: &OsStr) {
     path::pathenv_each(pathenv, |dir| {
         if !path::is_absolute_path(dir) {
-            print_stderr!(" \"{dir}\"");
+            print_stderr!(" \"{}\"", dir.to_string_lossy());
         }
     });
     print_stderr!("\n");
@@ -146,8 +155,8 @@ fn become_root(set_home: bool) {
     }
 }
 
-fn exec_command(absolute: &Path, argv: &[String]) {
-    let c_path = match CString::new(absolute.as_os_str().as_encoded_bytes()) {
+fn exec_command(absolute: &Path, argv: &[OsString]) {
+    let c_path = match CString::new(absolute.as_os_str().as_bytes()) {
         Ok(c) => c,
         Err(_) => {
             error!("Path contains NUL byte");
@@ -155,8 +164,10 @@ fn exec_command(absolute: &Path, argv: &[String]) {
         }
     };
 
-    let c_args: Result<Vec<CString>, _> =
-        argv.iter().map(|a| CString::new(a.as_bytes())).collect();
+    let c_args: Result<Vec<CString>, _> = argv
+        .iter()
+        .map(|a| CString::new(a.as_bytes()))
+        .collect();
     let c_args = match c_args {
         Ok(v) => v,
         Err(_) => {

@@ -1,5 +1,7 @@
 #![deny(unsafe_code)]
 
+use std::ffi::OsString;
+use std::os::unix::ffi::OsStringExt;
 use std::os::unix::fs::PermissionsExt;
 use std::process::Command;
 
@@ -97,6 +99,28 @@ fn unqualified_command_not_found_exits_127() {
         .output()
         .expect("failed to run root");
     assert_eq!(out.status.code(), Some(127));
+}
+
+#[test]
+fn non_utf8_qualified_path_does_not_panic() {
+    // Path is "/nonexistent/" + 0xFF — not valid UTF-8, but valid Unix argv.
+    // The previous String-based implementation would panic on args() before
+    // we got anywhere; with OsString-based parsing we should fail cleanly with
+    // COMMAND_NOT_FOUND.
+    let mut bytes = b"/nonexistent/".to_vec();
+    bytes.push(0xFF);
+    let bad = OsString::from_vec(bytes);
+    let out = Command::new(root_bin())
+        .arg(&bad)
+        .env("PATH", "/usr/bin:/bin")
+        .output()
+        .expect("failed to run root");
+    assert_eq!(
+        out.status.code(),
+        Some(127),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
 }
 
 #[test]
