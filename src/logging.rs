@@ -12,6 +12,7 @@ const FMT_STR: &[u8] = b"%s\0";
 static LOG_LEVEL: AtomicI32 = AtomicI32::new(LOG_ERR);
 static PROGNAME: OnceLock<CString> = OnceLock::new();
 
+#[allow(unsafe_code)] // libc::openlog FFI — args are statically-known-safe
 pub fn init(progname: &str) {
     let cprog = CString::new(progname).expect("program name must not contain NUL");
     unsafe {
@@ -43,6 +44,7 @@ pub fn escape_percents(input: &str) -> String {
     input.replace('%', "%%")
 }
 
+#[allow(unsafe_code)] // libc::syslog FFI — format is hardcoded "%s\0", arg is CString
 fn write_syslog(priority: i32, message: &str) {
     let prefix = escape_percents(&username());
     let escaped_msg = escape_percents(message);
