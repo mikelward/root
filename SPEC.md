@@ -35,11 +35,15 @@ Option parsing uses POSIX `+` prefix to stop at the first non-option argument
 2. **Parse arguments** - Process `-H`/`--nohome`/`--home` flags via
    `getopt_long()`. The remaining arguments are the command and its arguments.
 
-3. **Resolve command** - Determine the absolute path of the command to execute
-   (see [Command Resolution](#command-resolution) below).
+3. **Check permissions** - Verify the calling user is a member of group 0 (see
+   [Permission Model](#permission-model)). This happens *before* command
+   resolution: resolution runs with the setuid binary's elevated privileges
+   (`realpath()` traverses with `euid=0`), so resolving first would let
+   unauthorized users probe for the existence of files in directories they
+   cannot read.
 
-4. **Check permissions** - Verify the calling user is a member of group 0 (see
-   [Permission Model](#permission-model)).
+4. **Resolve command** - Determine the absolute path of the command to execute
+   (see [Command Resolution](#command-resolution) below).
 
 5. **Log the action** - Log the command being run (at `LOG_INFO` level) to
    syslog. This happens *before* becoming root so the log includes the calling
@@ -73,6 +77,9 @@ Examples: `ls`, `cat`, `grep`
 
 - Looked up in the `PATH` environment variable.
 - The first matching executable (checked via `access(path, X_OK)`) is used.
+- Only regular files match. A directory (or other non-regular file) with the
+  execute bit set is skipped, so it cannot shadow a real executable in a later
+  `PATH` entry.
 - The resolved path **must be absolute**. If the match came from a relative
   `PATH` entry (e.g. `.`, `""`, or `bin` instead of `/bin`), the command is
   **rejected** (see [PATH Safety](#path-safety)).
@@ -129,9 +136,10 @@ All log messages are sent to syslog with facility `LOG_AUTHPRIV`:
 - **`LOG_ERR`**: Errors (permission denied, command not found, etc.).
 - **`LOG_DEBUG`**: Debug information (PATH searches, command resolution).
 
-The calling user's username is included in syslog messages. Percent characters
-(`%`) in usernames are escaped to `%%` to prevent format string attacks via
-`syslog()`.
+The calling user's username is included in syslog messages. Messages are
+passed to `syslog()` as an argument to a constant `"%s"` format string, so
+user-controlled content (usernames, command names) is never interpreted as a
+format string and needs no escaping.
 
 ### Stderr
 
@@ -211,7 +219,7 @@ alias root='root '   # trailing space enables alias expansion
 | `src/args.rs` | Argument parsing (`-d`/`--debug`, `-H`/`--nohome`, `--home`) |
 | `src/path.rs` | PATH searching, path classification (qualified/absolute/unqualified) |
 | `src/user.rs` | Group membership checks, UID/GID switching, HOME directory setting |
-| `src/logging.rs` | Syslog and stderr logging, format string escaping |
+| `src/logging.rs` | Syslog and stderr logging |
 | `src/exit_code.rs` | Exit-code constants |
 | `tests/cli.rs` | Integration tests for the CLI surface |
 | `root.1` | Man page |

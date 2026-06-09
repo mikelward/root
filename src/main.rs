@@ -47,9 +47,13 @@ fn main() {
 
     debug!("Command to run is {}", command.to_string_lossy());
 
-    let absolute_command = resolve_command(command);
-
+    // Check permission before resolving the command: resolution runs with
+    // the setuid binary's elevated privileges (realpath traverses with
+    // euid 0), so doing it first would let unauthorized users probe for
+    // the existence of files in directories they cannot read.
     ensure_permitted();
+
+    let absolute_command = resolve_command(command);
 
     // Log before dropping the calling user's identity so syslog records who ran it.
     info!("Running {}", absolute_command.display());
