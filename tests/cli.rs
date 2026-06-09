@@ -13,6 +13,23 @@ fn running_as_root() -> bool {
     nix::unistd::Uid::current().is_root()
 }
 
+fn in_group_zero() -> bool {
+    nix::unistd::getgid().as_raw() == 0
+        || nix::unistd::getgroups()
+            .map(|gs| gs.iter().any(|g| g.as_raw() == 0))
+            .unwrap_or(false)
+}
+
+/// The permission check runs before command resolution, so callers outside
+/// group 0 always get PERMISSION_DENIED (123) instead of a resolution error.
+fn expected_code(code_when_permitted: i32) -> i32 {
+    if in_group_zero() {
+        code_when_permitted
+    } else {
+        123
+    }
+}
+
 #[test]
 fn no_args_prints_usage_and_exits_122() {
     let out = Command::new(root_bin())
@@ -50,14 +67,12 @@ fn unknown_long_option_exits_122() {
 
 #[test]
 fn nonexistent_qualified_path_exits_127() {
-    // Group check happens AFTER command resolution, so this path is reached
-    // even by non-root users.
     let out = Command::new(root_bin())
         .arg("/nonexistent/definitely-not-here")
         .env("PATH", "/usr/bin:/bin")
         .output()
         .expect("failed to run root");
-    assert_eq!(out.status.code(), Some(127));
+    assert_eq!(out.status.code(), Some(expected_code(127)));
 }
 
 #[test]
@@ -79,15 +94,17 @@ fn relative_path_disallowed_exits_125() {
         .expect("failed to run root");
     assert_eq!(
         out.status.code(),
-        Some(125),
+        Some(expected_code(125)),
         "stderr: {}",
         String::from_utf8_lossy(&out.stderr)
     );
-    let stderr = String::from_utf8_lossy(&out.stderr);
-    assert!(
-        stderr.contains("potentially unsafe"),
-        "stderr was: {stderr}"
-    );
+    if in_group_zero() {
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(
+            stderr.contains("potentially unsafe"),
+            "stderr was: {stderr}"
+        );
+    }
 }
 
 #[test]
@@ -98,7 +115,7 @@ fn unqualified_command_not_found_exits_127() {
         .env("PATH", "/usr/bin:/bin")
         .output()
         .expect("failed to run root");
-    assert_eq!(out.status.code(), Some(127));
+    assert_eq!(out.status.code(), Some(expected_code(127)));
 }
 
 #[test]
@@ -117,7 +134,7 @@ fn non_utf8_qualified_path_does_not_panic() {
         .expect("failed to run root");
     assert_eq!(
         out.status.code(),
-        Some(127),
+        Some(expected_code(127)),
         "stderr: {}",
         String::from_utf8_lossy(&out.stderr)
     );
@@ -130,11 +147,7 @@ fn not_in_group_zero_exits_123() {
         return;
     }
     // Check whether the current user is in group 0. If so, skip.
-    let in_group_0 = nix::unistd::getgroups()
-        .map(|gs| gs.iter().any(|g| g.as_raw() == 0))
-        .unwrap_or(false)
-        || nix::unistd::getgid().as_raw() == 0;
-    if in_group_0 {
+    if in_group_zero() {
         eprintln!("skipping: user is in group 0");
         return;
     }

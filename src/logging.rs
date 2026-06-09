@@ -40,15 +40,12 @@ fn username() -> String {
     }
 }
 
-pub fn escape_percents(input: &str) -> String {
-    input.replace('%', "%%")
-}
-
 #[allow(unsafe_code)] // libc::syslog FFI — format is hardcoded "%s\0", arg is CString
 fn write_syslog(priority: i32, message: &str) {
-    let prefix = escape_percents(&username());
-    let escaped_msg = escape_percents(message);
-    let full = format!("{prefix}: {escaped_msg}");
+    // The message is passed as an argument to the constant "%s" format
+    // string, so user-controlled content (usernames, command names) is
+    // never interpreted as a format string and needs no escaping.
+    let full = format!("{}: {}", username(), message);
     let Ok(c_msg) = CString::new(full) else {
         return;
     };
@@ -106,26 +103,6 @@ macro_rules! print_stderr {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn escape_percents_passthrough() {
-        assert_eq!(escape_percents("mikel"), "mikel");
-    }
-
-    #[test]
-    fn escape_percents_doubles_percent() {
-        assert_eq!(escape_percents("%sally"), "%%sally");
-    }
-
-    #[test]
-    fn escape_percents_empty() {
-        assert_eq!(escape_percents(""), "");
-    }
-
-    #[test]
-    fn escape_percents_multiple() {
-        assert_eq!(escape_percents("%a%b%"), "%%a%%b%%");
-    }
 
     #[test]
     fn level_default_and_set() {
