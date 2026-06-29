@@ -21,7 +21,7 @@ MANPAGE=../root.1
 
 all: test root
 
-test: loggingtest pathtest
+test: loggingtest pathtest argstest
 
 loggingtest: loggingtest.o logging.o
 	$(CC) $(LDFLAGS) -o $@ loggingtest.o logging.o
@@ -31,16 +31,22 @@ pathtest: pathtest.o path.o logging.o
 	$(CC) $(LDFLAGS) -o $@ pathtest.o path.o logging.o
 	./$@
 
-root: root.o user.o path.o logging.o
-	$(CC) $(LDFLAGS) -o $@ root.o user.o path.o logging.o
+argstest: argstest.o args.o
+	$(CC) $(LDFLAGS) -o $@ argstest.o args.o
+	./$@
+
+root: root.o user.o path.o logging.o args.o
+	$(CC) $(LDFLAGS) -o $@ root.o user.o path.o logging.o args.o
 
 # Header dependencies
-root.o: root.h logging.h path.h user.h
+root.o: root.h logging.h path.h user.h args.h
 user.o: user.h root.h logging.h
 path.o: path.h root.h logging.h
 logging.o: logging.h
+args.o: args.h
 loggingtest.o: logging.h
 pathtest.o: path.h
+argstest.o: args.h
 
 INSTALL_GROUP?=root
 
@@ -56,6 +62,6 @@ clean:
 	-rm -f *.o
 
 clobber: clean
-	-rm -f root loggingtest pathtest
+	-rm -f root loggingtest pathtest argstest
 
 .PHONY: all test install clean clobber
