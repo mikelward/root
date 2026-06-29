@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "root.h"
@@ -13,7 +14,9 @@
 
 /*
  * Return the full path to command found by searching for it in pathenv,
- * and returning the first match.
+ * returning the first PATH entry that contains a matching executable
+ * regular file. Directories (and other non-regular files) are skipped
+ * even when they are executable.
  *
  * If command is found via a relative path in PATH (e.g. "" or "."),
  * the relative path is still returned. The caller is responsible for
@@ -76,7 +79,15 @@ char *get_command_path(const char *command, const char *pathenv)
         }
         strcat(path, command);
 
-        if (access(path, X_OK) == 0) {
+        /*
+         * Require a regular, executable file. Skipping directories (and
+         * other non-regular files) means an executable directory whose
+         * name matches the command does not shadow the real executable in
+         * a later PATH entry, which would otherwise make execv() fail.
+         */
+        struct stat st;
+        if (access(path, X_OK) == 0 && stat(path, &st) == 0
+            && S_ISREG(st.st_mode)) {
             /*debug("%s is %s", command, path);*/
 
             free(pathenvcopy);

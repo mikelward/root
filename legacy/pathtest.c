@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "path.h"
 
@@ -144,6 +146,57 @@ void test_is_unqualified_path(void)
     assert(!is_unqualified_path(NULL));
 }
 
+/*
+ * get_command_path tests
+ */
+void test_get_command_path_skips_directories(void)
+{
+    printf("Running %s\n", __func__);
+
+    char tmpl[] = "/tmp/roottestXXXXXX";
+    char *base = mkdtemp(tmpl);
+    assert(base != NULL);
+
+    char dira[256], dirb[256];
+    snprintf(dira, sizeof(dira), "%s/a", base);
+    snprintf(dirb, sizeof(dirb), "%s/b", base);
+    assert(mkdir(dira, 0755) == 0);
+    assert(mkdir(dirb, 0755) == 0);
+
+    /* a/cmd is an executable directory that must NOT shadow b/cmd */
+    char dircmd[300];
+    snprintf(dircmd, sizeof(dircmd), "%s/cmd", dira);
+    assert(mkdir(dircmd, 0755) == 0);
+
+    /* b/cmd is the real executable regular file */
+    char filecmd[300];
+    snprintf(filecmd, sizeof(filecmd), "%s/cmd", dirb);
+    FILE *f = fopen(filecmd, "w");
+    assert(f != NULL);
+    fclose(f);
+    assert(chmod(filecmd, 0755) == 0);
+
+    char pathenv[600];
+    snprintf(pathenv, sizeof(pathenv), "%s:%s", dira, dirb);
+
+    char *result = get_command_path("cmd", pathenv);
+    assert(result != NULL);
+    assert(strcmp(result, filecmd) == 0);
+    free(result);
+
+    /* If only the directory matches, nothing is found */
+    char patha[300];
+    snprintf(patha, sizeof(patha), "%s", dira);
+    char *only_dir = get_command_path("cmd", patha);
+    assert(only_dir == NULL);
+
+    unlink(filecmd);
+    rmdir(dircmd);
+    rmdir(dira);
+    rmdir(dirb);
+    rmdir(base);
+}
+
 int main(int argc, const char *argv[])
 {
     test_pathenv_each_basic();
@@ -156,6 +209,7 @@ int main(int argc, const char *argv[])
     test_is_absolute_path();
     test_is_qualified_path();
     test_is_unqualified_path();
+    test_get_command_path_skips_directories();
 
     return 0;
 }
