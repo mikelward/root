@@ -12,6 +12,23 @@ To install, just run `make install` as root.
 
 You will require GNU make and a stable Rust toolchain (cargo + rustc).
 
+Note that cargo and rustc are only needed to *build* `root`. The resulting
+binary has no Rust runtime dependency, so the usual approach for a machine
+without a toolchain is to build `root` once elsewhere and copy the binary
+(and `root.1`) into place.
+
+### Legacy C build (fallback)
+
+If you genuinely need to build from source on a machine that has no Rust
+toolchain, a legacy C implementation is kept under `legacy/`. It builds the
+same `root` command with only a C99 compiler and GNU make:
+
+    cd legacy
+    make install      # as root
+
+The Rust version is the primary, supported implementation; the C version is
+maintained only as a fallback.
+
 Configuration
 -------------
 Any user in group 0 (usually called `wheel` or `root`) is allowed
