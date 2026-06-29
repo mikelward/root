@@ -187,6 +187,11 @@ semantics (options stop at the first non-option).
   to accommodate systems where group 0 is named `wheel` (BSD, macOS):
   `make install INSTALL_GROUP=wheel`.
 
+- The compiled binary has no Rust runtime dependency, so the toolchain is
+  only needed at build time. For machines without a Rust toolchain, build once
+  and copy the binary, or build the C fallback under `legacy/` (see
+  [Installation](#installation)), which needs only a C99 compiler and GNU make.
+
 ## Installation
 
 The binary must be installed **setuid root** for privilege escalation to work:
@@ -200,6 +205,24 @@ On BSD and macOS, use group `wheel`:
 ```
 make install INSTALL_GROUP=wheel
 ```
+
+### Legacy C build (fallback)
+
+The Rust implementation is the primary, supported build. For machines that
+have no Rust toolchain and where copying a prebuilt binary is not an option, a
+C99 implementation is maintained under `legacy/` and builds the same `root`
+command with only a C99 compiler and GNU make:
+
+```
+cd legacy && make install
+```
+
+The C fallback is a maintained alternative, not a frozen snapshot: it must
+match the behavior specified in this document (including the permission check
+ordering in [Execution Flow](#execution-flow) and the regular-file requirement
+in [PATH Safety](#path-safety)). Behavior or security fixes that apply to the
+Rust path must be applied to the C path as well, and vice versa. It accepts the
+same `INSTALL_GROUP` variable as the top-level `Makefile`.
 
 ## Shell Alias Tip
 
@@ -222,8 +245,9 @@ alias root='root '   # trailing space enables alias expansion
 | `src/logging.rs` | Syslog and stderr logging |
 | `src/exit_code.rs` | Exit-code constants |
 | `tests/cli.rs` | Integration tests for the CLI surface |
-| `root.1` | Man page |
-| `legacy/` | The previous C99 implementation, kept for reference |
+| `root.1` | Man page (shared by both builds) |
+| `legacy/` | C99 implementation, maintained as a fallback for toolchain-free machines; must match this spec |
+| `legacy/Makefile` | Builds and installs the C fallback (C99 compiler + GNU make only) |
 
 ## Design Principles
 
