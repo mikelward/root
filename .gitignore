@@ -1,2 +1,6 @@
 /target
 /root
+legacy/*.o
+legacy/root
+legacy/loggingtest
+legacy/pathtest
