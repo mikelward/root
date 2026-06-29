@@ -4,3 +4,4 @@ legacy/*.o
 legacy/root
 legacy/loggingtest
 legacy/pathtest
+legacy/argstest

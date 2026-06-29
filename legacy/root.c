@@ -11,7 +11,6 @@
 
 #include <sys/types.h>
 #include <errno.h>
-#include <getopt.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,6 +18,7 @@
 #include <syslog.h>
 #include <unistd.h>
 
+#include "args.h"
 #include "logging.h"
 #include "path.h"
 #include "root.h"
@@ -99,59 +99,36 @@ void process_args(int argc,
                   const char *const *argv,
                   const char *const **argsp)
 {
-    if (argc < 2) {
-        usage();
-        exit(ROOT_INVALID_USAGE);
-    }
-
     if (argsp == NULL) {
         error("process_args: argsp is NULL");
         exit(ROOT_PROGRAMMER_ERROR);
     }
 
-    static const struct option long_options[] = {
-        {"debug",  no_argument, NULL, 'd'},
-        {"home",   no_argument, NULL, 'h'},
-        {"nohome", no_argument, NULL, 'H'},
-        {NULL,     0,           NULL, 0}
-    };
-
-    int opt;
-    while ((opt = getopt_long(argc, (char *const *)argv, "+dH",
-                              long_options, NULL)) != -1) {
-        switch (opt) {
-        case 'd':
-            setloglevel(LOG_DEBUG);
-            break;
-        case 'h':
-            set_home = 1;
-            break;
-        case 'H':
-            set_home = 0;
-            break;
-        default:
-            usage();
-            exit(ROOT_INVALID_USAGE);
-        }
-    }
-
-    argc -= optind;
-    argv += optind;
-
-    if (argc < 1) {
+    struct options opts;
+    const char *const *args;
+    if (parse_args(argc, argv, &opts, &args) != 0) {
         usage();
         exit(ROOT_INVALID_USAGE);
     }
 
-    const char *command = argv[0];
-    if (command == NULL || *command == '\0') {
+    if (opts.debug) {
+        setloglevel(LOG_DEBUG);
+    }
+    set_home = opts.set_home;
+
+    const char *command = args[0];
+    if (command == NULL) {
+        usage();
+        exit(ROOT_INVALID_USAGE);
+    }
+    if (*command == '\0') {
         error("Command is empty");
         exit(ROOT_INVALID_USAGE);
     }
 
     debug("Command to run is %s", command);
 
-    *argsp = argv;
+    *argsp = args;
 }
 
 /**
