@@ -29,7 +29,6 @@ static int set_home = 1;
 static void setup_logging(void);
 static void process_args(int argc,
                          const char *const *argv,
-                         char **absolute_commandp,
                          const char *const **argsp);
 static void get_command_to_run(const char *command, char **absolute_commandp);
 static void find_and_verify_command(const char *command, char **path_commandp);
@@ -49,9 +48,17 @@ int main(int argc, const char *const *argv)
 
     setup_logging();
 
-    process_args(argc, argv, &absolute_command, &args);
+    process_args(argc, argv, &args);
 
+    /*
+     * Check permission before resolving the command. Resolution runs with
+     * the setuid binary's elevated privileges (realpath traverses with
+     * euid 0), so doing it first would let unauthorized users probe for
+     * the existence of files in directories they cannot read.
+     */
     ensure_permitted();
+
+    get_command_to_run(args[0], &absolute_command);
 
     /*
      * Do this before become_root so we can log the calling username/uid.
@@ -78,28 +85,23 @@ void setup_logging(void)
  *
  * We read the command line arguments to figure out what command to run.
  *
- * The first argument (argv[0]) is the command.
+ * The arguments to run (argv -> *argsp), including the command itself as
+ * argv[0] due to C/UNIX conventions, are stored in *argsp. The command is
+ * *argsp[0]; the caller resolves it to an absolute path (via
+ * get_command_to_run) only after checking permission, so that the
+ * privileged path resolution does not run for unauthorized users.
  *
- * The command is looked up and converted to an absolute path by
- * get_command_to_run, then stored in *absolute_commandp.
- *
- * The remaining arguments (argv -> *argsp)
+ * The arguments (argv -> *argsp)
  * (including argv[0] due to C/UNIX conventions)
  * are the arguments that will be passed unchanged to execv().
  */
 void process_args(int argc,
                   const char *const *argv,
-                  char **absolute_commandp,
                   const char *const **argsp)
 {
     if (argc < 2) {
         usage();
         exit(ROOT_INVALID_USAGE);
-    }
-
-    if (absolute_commandp == NULL) {
-        error("process_args: absolute_commandp is NULL");
-        exit(ROOT_PROGRAMMER_ERROR);
     }
 
     if (argsp == NULL) {
@@ -148,8 +150,6 @@ void process_args(int argc,
     }
 
     debug("Command to run is %s", command);
-
-    get_command_to_run(command, absolute_commandp);
 
     *argsp = argv;
 }
