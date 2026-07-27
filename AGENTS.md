@@ -6,6 +6,29 @@
 - Update `README.md` when changing user-facing features.
 - Add tests for new functionality and run tests before committing.
 
+## Testing
+
+- **Any change to executable behavior adds or updates a test.** New
+  functionality gets a test that exercises its behavior; a bug fix gets a
+  regression test that fails before the fix and passes after. Changes with no
+  behavior to exercise — documentation, comments, this file — add no test;
+  don't manufacture test churn to satisfy the rule. Run the suite either way.
+- Run `make test` (`cargo test --release`) after any change and before
+  committing. **The top-level target does not cover `legacy/`** — the C
+  implementation has its own suite (`loggingtest`, `pathtest`, `argstest`), so
+  a change under `legacy/` also needs `make -C legacy test`. That code is the
+  setuid fallback; an untested change there is a security change.
+- **Fix any preexisting test failures as the *first* commit of the series.**
+  Don't stack new work on a red baseline. If the failure is genuinely
+  unrelated and out of scope, say so up front and confirm before skipping it.
+- **Don't paper over flaky/racy tests** with sleeps, retry loops, or bumped
+  timeouts. Make the ordering explicit, or fix the underlying race. A test
+  that passes "most of the time" is broken.
+- **Don't disable a failing check** (a test, `cargo clippy`, a lint) to make
+  it pass — fix the underlying issue. This ships as a setuid binary, so a
+  check silenced for convenience is a privilege-escalation bug waiting to
+  happen.
+
 ## Talking to the user
 
 - **One question at a time.** Never stack multiple questions in a single turn —
@@ -38,6 +61,24 @@
   that lands is one coherent change, with fix-ups and review responses folded
   into the commit they belong to. `wip` / `address review` churn doesn't
   survive into `main`.
+- **These rules assume an `origin` remote.** Without one you can't fetch,
+  branch from `origin/main`, push, or open a PR — say so and stop rather than
+  improvising a local substitute.
+- **Branch naming.** Feature branches are prefixed with the agent's own short
+  name: `<agent>/<short-topic>` (`claude/...` for Claude Code, `codex/...` for
+  Codex, and so on). Branch off `origin/main`, one topic per branch; never
+  commit to `main`. The placeholder `<agent>` stands in for whichever prefix
+  you use — don't hard-code `claude/` unless you *are* Claude Code.
+- **Merge cue (`merged` / `I merged` / `landed` / merge webhook) runs hygiene
+  *before* engaging with the rest of the message:** `git fetch origin`, cut a
+  fresh `<agent>/<short-topic>` branch off `origin/main`, announce the switch.
+- **Unshallow before answering anything that depends on git history depth.**
+  The sandbox clones shallow, so `git rev-list --count`, `git log` past the
+  shallow boundary, and blame return wrong answers without warning. If
+  `git rev-parse --is-shallow-repository` says `true`, run
+  `git fetch --unshallow` first, then re-check — it exits 0 even when
+  it deepened nothing, so if `--is-shallow-repository` is still `true`, say the
+  history is truncated instead of quoting a count.
 
 ## Error handling
 
@@ -69,14 +110,16 @@
   Re-read the diff against `origin/main` and patch whatever drifted, then post
   the PR link in the chat reply for that push, not only at the end of the
   conversation.
-- **"Drive to merge"** is shorthand for the whole loop: open the PR, send it
-  for Codex review, address every review comment — fix it if you agree, reply
-  on the thread saying why if you don't — and merge once CI is green and Codex
-  has left its thumbs up.
+- **"Drive to merge"** is shorthand for the whole loop: open the PR, wait for
+  the automatic Codex review, address every review comment — fix it if you
+  agree, reply on the thread saying why if you don't — and merge once CI is
+  green and Codex has left its thumbs up.
 - **Codex is the automated reviewer** — not Copilot. Its reviews are triggered
   automatically; you don't request them. Address its comments without being
   asked, folding each fix into the commit it belongs to rather than tacking on
   an "address review" commit.
+- **Judge every review comment on merit, whoever wrote it.** Verify the claim
+  before acting; if it doesn't hold up, reply saying why and decline.
 - **Never leave a review comment thread silently dismissed.** Either reply on
   the thread *or* resolve it; when you think a comment is a false positive, say
   *why* on the thread. `resolve_review_thread` works — pass the `PRRT_*` thread
@@ -90,3 +133,27 @@
 - **Keep watching merged PRs for late review comments.** Stay subscribed after
   the merge and handle each new comment per the reply-or-resolve rule; stop
   once every post-merge comment is handled or after ~24h of silence.
+- When a feature has multiple open PRs, list **every** open PR by URL, one per
+  line — the "View PR" chip sticks to the first link and hides the rest
+  (anthropics/claude-code#46625).
+- End every reply with the open-PR link (or `.../compare/main...<branch>`
+  until a PR exists). Never link to a closed or merged PR — except when the
+  reply *is* post-merge follow-up on that PR, where linking it is correct.
+
+## Language and spelling
+
+- Use **US English** everywhere people read English: user-facing output and
+  the man page, commit subjects and bodies, PR titles and descriptions,
+  comments, docs (`SPEC.md`, `README.md`), and identifiers — `color` not
+  `colour`, `behavior` not `behaviour`, `canceled` not `cancelled`, `gray`
+  not `grey`. Third-party API spellings stay as those APIs spell them.
+
+## Cost and reliability
+
+- **Call out cost and reliability up front** when recommending a new
+  dependency or external call. Include a rough dollar figure where one
+  applies, and note reliability implications: new failure modes, added
+  latency, and extra points of failure. On a setuid binary a new dependency
+  is also new attack surface running as root — say so explicitly, and prefer
+  the standard library where it will do. If the impact is effectively zero,
+  say so rather than omitting the note.
