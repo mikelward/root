@@ -95,10 +95,7 @@
 - **Don't silently swallow errors.** A discarded exit status, a bare
   `2>/dev/null`, or an empty catch hides real failures and burns hours when
   something eventually breaks. Report the failure with enough context to
-  identify what failed and why — sanitized context only, since a message can
-  easily carry a hostname, a token, or a path with the user's real name, and
-  the Privacy rule applies to logs too — clean up whatever the failed step
-  created, and
+  identify what failed and why, clean up whatever the failed step created, and
   decide explicitly what the caller sees rather than letting control fall
   through. If you genuinely want to ignore a specific failure, name the reason
   in a one-line comment.
@@ -112,6 +109,18 @@
   and shell or command history. Use generic placeholders (`/home/user`,
   `host1`) in examples and fixtures. If a bug report contains any of it,
   paraphrase in the commit / PR — don't quote verbatim.
+- **Program output and the syslog audit trail are not those artifacts.** Output
+  prints on the user's own terminal. The audit record goes to whoever
+  administers the machine — often forwarded to a central collector, so don't
+  assume it stays local — and that reader is entitled to it: naming the calling
+  user and the resolved command is the whole point of an `LOG_AUTHPRIV` record,
+  and scrubbing those two fields would defeat the auditability this tool exists
+  to provide. They are also the *only* fields exempt. Arguments are deliberately
+  outside the record (`src/main.rs` logs the resolved path only) because they can
+  carry a password or an API key with no redaction mechanism to catch it, and
+  forwarding is precisely why widening the record to arbitrary content would be
+  a mistake. Quoting output into a commit, PR, or fixture republishes it, and the
+  bullet above governs again.
 
 ## Pull requests
 
