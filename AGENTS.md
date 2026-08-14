@@ -174,20 +174,15 @@ reply, no offer to correct it. It is not a finding.
   thread the user is actually reading under machine chatter they didn't ask
   for. Subscribe only when asked to, and unsubscribe as soon as the reason
   for it passes.
-- **Permissions are granted before the session starts, so a rule here can't
-  fix them.** Copy the scheduler entries — the MCP ones and
-  `ScheduleWakeup`, which is not one — and the GitHub MCP entries, reads and
-  writes both, from this repo's `.claude/settings.json` into
-  `$HOME/.claude/settings.json`, from the environment's setup script, under
-  full MCP identifiers and both server-name spellings, since bare names
-  match nothing. Global writes are a deliberate trade the repo owner has
-  taken: any repo the account opens can then merge and comment unprompted,
-  and in exchange a session rooted above a repo — which loads no repo-local
-  settings — never stalls the watch on a prompt nobody is there to answer.
-  The `Bash` entries stay repo-local: `git push` and `curl` everywhere is
-  wider than the loop needs. Settings load at startup, so writing that file
-  mid-session does nothing for that session; if calls are prompting, say so
-  once and carry on.
+- **Permissions load at session start, so a rule here can't fix them.** The
+  unattended loop needs the scheduler entries (the MCP ones and
+  `ScheduleWakeup`), the GitHub MCP reads and writes, and `git push`. A
+  session rooted above the repo loads no repo-local settings, so those
+  belong in `$HOME/.claude/settings.json`, written by the environment's
+  setup script under both server-name spellings. The cost, which the repo
+  owner has taken: any repo the account opens can push, comment and merge
+  unprompted. Writing that file mid-session does nothing for that session;
+  if calls prompt, say so once and carry on.
 - **Poll your own open PRs — every ~5 minutes while CI or the verdict is
   outstanding, ~30 once only a human is left.** Those two are what nothing
   else reports. Never end a turn idle with one of yours open: arm the next
