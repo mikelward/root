@@ -280,26 +280,19 @@ reply, no offer to correct it. It is not a finding.
   node ID from `pull_request_read` / `get_review_comments`
   (`review_threads[].id`); a comment's `PRRC_*` ID fails. Push the fix first,
   then reply citing the new sha, then resolve.
-- **Read the Codex verdict, don't infer it.** It reacts to the PR **body** —
-  `issue_read` → `reactions` — not to a review thread, whose `Useful?` bar a
-  page fetch finds instead and which reads true on any PR Codex has
-  commented on. `eyes` while it reads, `+1` when it finds nothing — or a
-  review reporting no findings, which is the same verdict and names the
-  commit it read. The reaction is revoked as a new push lands, so what you
-  can see belongs to the head you can see: `+1` on green CI is a merge, with
-  nothing further to wait for. A finding is not silence, so the recovery
-  keys on both: nothing at all five minutes after a push — no reaction, no
-  review, no comment — means it never picked the push up; comment `@codex
-  review`, once. A review that *finds* something leaves no reaction at all,
-  so a sweep of reactions alone reads a PR with findings waiting on it as an
-  empty one: read `get_review_comments` and `get_comments` every poll. An
-  unresolved finding blocks the merge whatever the reaction says; one you
-  have answered or fixed does not. Check who left each — the reaction count
-  is anonymous, so leave PR-body reactions to Codex, and a human's review
-  carries the same `commit_id` as Codex's.
-- **A finding can arrive as a top-level PR comment.** `get_review_comments`
-  returns only inline threads, so read `get_comments` too — a P1 sat
-  unanswered for two hours because a sweep of the threads never saw it.
+- **Read the Codex verdict, don't infer it.** It reacts to the PR body
+  (`issue_read` → `reactions`), not to a review thread, whose `Useful?` bar
+  reads true on any PR it has commented on. `eyes` means reading, `+1` means
+  clean, and Codex revokes it on push — so a visible one belongs to the
+  visible head, and `+1` with green CI is a merge. The count names no
+  author, so leave PR-body reactions to Codex: nobody else's is revoked, and
+  a review is the attributable form, naming the commit it read. Findings
+  arrive as review comments, as a top-level comment, or as a review — read
+  `get_review_comments`, `get_comments` and `get_reviews` to the last page,
+  since all three page oldest first — and they block the merge until fixed
+  or rebutted; an acknowledgement is not an answer. Nothing from Codex since
+  the push, five minutes on, means it never picked it up — comment `@codex
+  review`, once.
 - **Skip echo events silently.** Replies posted via the GitHub MCP come back
   moments later as webhook events authored by the same identity; if the body
   matches a comment you just posted, it's your own echo — continue without
