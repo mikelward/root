@@ -188,8 +188,12 @@ reply, no offer to correct it. It is not a finding.
   - Name the PR, and say what to re-read rather than what you read. A SHA or
     a list of which PRs are open goes stale before it fires; one PR number
     does not, and the trigger has to be matchable to it.
-  - Merged or closed, take one last reply-or-resolve pass — a review can
-    land after the merge — then cancel it and unsubscribe. `list_triggers`
+  - Merged or closed, take one last reply-and-resolve pass — a review can
+    land after the merge. Nothing is holding the PR now, so on a merged one
+    anything real goes to a follow-up PR, named on the thread, before you
+    resolve it; leaving it open records the work nowhere. A closed-unmerged
+    PR is a stop — the work was abandoned, so answer, resolve, and open
+    nothing. Then cancel the check and unsubscribe. `list_triggers`
     spans the account, so match this session and this PR before updating
     or deleting one; an update reschedules whatever it matches as surely
     as a delete cancels it.
@@ -244,8 +248,9 @@ reply, no offer to correct it. It is not a finding.
   commit it belongs to rather than tacking on an "address review" commit.
 - **Judge every review comment on merit, whoever wrote it.** Verify the claim
   before acting; if it doesn't hold up, reply saying why and decline.
-- **Never leave a review comment thread silently dismissed.** Either reply on
-  the thread *or* resolve it; when you think a comment is a false positive, say
+- **Never leave a review comment thread silently dismissed.** Answer on the thread — a
+  disagreement is an answer, so say why — then resolve it once the fix is on the
+  head or the point is rebutted; anything still to do stays open; when you think a comment is a false positive, say
   *why* on the thread. `resolve_review_thread` works — pass the `PRRT_*` thread
   node ID from `pull_request_read` / `get_review_comments`
   (`review_threads[].id`); a comment's `PRRC_*` ID fails. Push the fix first,
