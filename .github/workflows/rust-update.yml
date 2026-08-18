@@ -24,10 +24,15 @@ jobs:
       pull-requests: write
       actions: write
     with:
-      # No ci.yml exists here yet (TODO.md tracks that gap separately), so
-      # there is nothing to dispatch — the checks below are the only gate a
-      # batch gets. Matches the Makefile's own `make test` invocation
-      # (`cargo test --release`), plus `--locked` so a check cannot quietly
-      # re-resolve what the engine settled.
+      # Matches the Makefile's own `make test` invocation (`cargo test
+      # --release`), plus `--locked` so a check cannot quietly re-resolve
+      # what the engine settled. A Cargo.lock-only diff never touches
+      # legacy/ (a separate, untracked-by-Cargo C codebase), so `make -C
+      # legacy test` has nothing to re-verify here — ci.yml still runs it
+      # on every PR regardless, via the dispatch below.
       checks: |
         cargo test --release --locked
+      # A PR opened by GITHUB_TOKEN triggers no on: pull_request run of its
+      # own, so nothing would start ci.yml's real gate (make test, make -C
+      # legacy test) on the batch PR by itself — this names it explicitly.
+      ci-workflow: ci.yml
