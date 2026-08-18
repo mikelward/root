@@ -1,0 +1,33 @@
+name: Rust dependency update
+
+# Weekly Cargo.lock batch, as mikelward/rust-update's reusable workflow —
+# see https://github.com/mikelward/rust-update for what it does and its
+# trust model. This file just supplies the schedule and the permissions the
+# reusable workflow's jobs downscope from; the update and publish logic all
+# lives there.
+on:
+  schedule:
+    - cron: '11 6 * * 6'   # Saturdays, off the congested top of the hour
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: rust-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    uses: mikelward/rust-update/.github/workflows/rust-update.yml@main
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    with:
+      # No ci.yml exists here yet (TODO.md tracks that gap separately), so
+      # there is nothing to dispatch — the checks below are the only gate a
+      # batch gets. Matches the Makefile's own `make test` invocation
+      # (`cargo test --release`), plus `--locked` so a check cannot quietly
+      # re-resolve what the engine settled.
+      checks: |
+        cargo test --release --locked
