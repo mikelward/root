@@ -23,6 +23,12 @@ jobs:
       contents: write
       pull-requests: write
       actions: write
+    secrets:
+      # See docs/GITHUB_APP.md in mikelward/rust-update: opens the PR as a
+      # real collaborator, so ci.yml's `gate` starts on it normally — no
+      # first-time-contributor approval to click through.
+      app-id: ${{ secrets.RUST_UPDATE_APP_ID }}
+      app-private-key: ${{ secrets.RUST_UPDATE_APP_PRIVATE_KEY }}
     with:
       # Matches the Makefile's own `make test` invocation (`cargo test
       # --release`), plus `--locked` so a check cannot quietly re-resolve
@@ -32,7 +38,8 @@ jobs:
       # on every PR regardless, via the dispatch below.
       checks: |
         cargo test --release --locked
-      # A PR opened by GITHUB_TOKEN triggers no on: pull_request run of its
-      # own, so nothing would start ci.yml's real gate (make test, make -C
-      # legacy test) on the batch PR by itself — this names it explicitly.
+      # Belt-and-suspenders fallback: covers a rerun that adopts a PR from
+      # before the App secrets above existed, and the (unexpected) case of
+      # the App token being unset. Names ci.yml's real gate (make test,
+      # make -C legacy test) explicitly so it can be dispatched.
       ci-workflow: ci.yml
