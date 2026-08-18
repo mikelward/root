@@ -70,3 +70,17 @@ resolve their definition *there*, so neither fires for the pull request
 installing it. What does fire is `pull_request_review_comment`, which resolves
 against the merge ref, so a reply on a review thread runs the sweep and
 publishes the verdict for the current head.
+
+## Review and merge gates
+
+- [ ] Add a CI gate (`ci.yml`) running the existing suites — `make test`
+      and the security-relevant `make -C legacy test` — so the ruleset
+      has a real test gate to require. There IS something to run here,
+      so this item cannot be closed by recording otherwise.
+- [ ] Verify the settings half of the fleet's bar — every repository
+      works the same: comprehensive automated review, required merge
+      gates, and auto-merge. A ruleset on the default branch requiring
+      the gates, the `codex` status, conversation resolution and
+      up-to-date branches, with the auto-merge setting enabled — together
+      with the required-workflow gate for the trusted `check-consumer.yml`
+      documented earlier in this file, which completes the list.
