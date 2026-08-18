@@ -1,0 +1,57 @@
+name: CI
+
+# The real test gate this repository's ruleset can require (TODO.md "Run the
+# suite in CI"): the two suites AGENTS.md already calls mandatory before a
+# commit — `make test` (`cargo test --release`) for the primary Rust build,
+# and `make -C legacy test` for the C fallback under legacy/, which is
+# security-relevant on its own (the setuid binary this repo ships when no
+# Rust toolchain is available). Both ran only on a developer's machine until
+# now.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # A PR opened by GITHUB_TOKEN (mikelward/rust-update's weekly batch)
+  # triggers no on: pull_request run of its own, so that job dispatches this
+  # workflow explicitly, naming the PR it reports for. Nothing here decides
+  # to SKIP based on the pr input — both suites always run in full, whatever
+  # triggered the run — so there is no docs-lane-style binding check to
+  # spoof; the input only has to exist for `gh workflow run ci.yml -f pr=...`
+  # to succeed.
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number this run reports for.
+        required: true
+        type: string
+
+# Read-only: this workflow builds and tests, it never writes to the
+# repository.
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # The primary, supported implementation.
+  test:
+    name: make test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: make test
+
+  # The setuid fallback for machines without a Rust toolchain. Untested
+  # changes here are a security change (AGENTS.md), so this suite is not
+  # optional just because the Rust build is primary.
+  legacy-test:
+    name: make -C legacy test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: make -C legacy test

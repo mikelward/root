@@ -23,25 +23,6 @@ the alternative was, and why it is reversible.
       fork head also fails the `codex` status for a separate, deliberate
       reason.
 
-## Run the suite in CI
-
-This repository had no `.github/workflows/` at all before the codex-review
-setup landed, so the three files it added are the only workflows here and
-`codex-review-check` is the only check a pull request gets. `make test`
-(`cargo test --release`) and `make -C legacy test` run on a developer's
-machine and nowhere else.
-
-That is the wrong way round for this program in particular. It ships setuid,
-so the legacy C fallback under `legacy/` — the one with its own `loggingtest`,
-`pathtest` and `argstest` — is security-relevant code that nothing verifies
-before a merge. `AGENTS.md` already says an untested change there is a security
-change; without CI, "tested" means whoever pushed remembered to run two
-separate suites.
-
-Worth doing before requiring anything else in the ruleset, since a required
-check that only proves the workflows match their templates says nothing about
-whether the binary works.
-
 ## Add the ruleset settings the Codex gate expects
 
 Three settings this repository's ruleset does not have yet, all explained in
@@ -73,10 +54,6 @@ publishes the verdict for the current head.
 
 ## Review and merge gates
 
-- [ ] Add a CI gate (`ci.yml`) running the existing suites — `make test`
-      and the security-relevant `make -C legacy test` — so the ruleset
-      has a real test gate to require. There IS something to run here,
-      so this item cannot be closed by recording otherwise.
 - [ ] Verify the settings half of the fleet's bar — every repository
       works the same: comprehensive automated review, required merge
       gates, and auto-merge. A ruleset on the default branch requiring
