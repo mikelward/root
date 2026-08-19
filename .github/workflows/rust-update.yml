@@ -24,9 +24,13 @@ jobs:
       pull-requests: write
       actions: write
     secrets:
-      # See docs/GITHUB_APP.md in mikelward/rust-update: opens the PR as a
-      # real collaborator, so ci.yml's `gate` starts on it normally — no
-      # first-time-contributor approval to click through.
+      # See docs/PAT.md in mikelward/rust-update: takes priority over the
+      # App credential below (simpler one-time setup while this repo is
+      # single-owner — see that repo's TODO.md "Reconsider later"). Both
+      # open the PR as a real collaborator either way, so ci.yml's `gate`
+      # starts on it normally — no first-time-contributor approval to
+      # click through.
+      token: ${{ secrets.RUST_UPDATE_PAT }}
       app-id: ${{ secrets.RUST_UPDATE_APP_ID }}
       app-private-key: ${{ secrets.RUST_UPDATE_APP_PRIVATE_KEY }}
     with:
