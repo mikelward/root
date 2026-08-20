@@ -1,4 +1,4 @@
-name: Rust dependency update
+name: rust-update
 
 # Weekly Cargo.lock batch, as mikelward/rust-update's reusable workflow —
 # see https://github.com/mikelward/rust-update for what it does and its
