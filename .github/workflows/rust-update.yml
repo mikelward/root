@@ -23,16 +23,17 @@ jobs:
       contents: write
       pull-requests: write
       actions: write
-    secrets:
-      # See docs/PAT.md in mikelward/rust-update: takes priority over the
-      # App credential below (simpler one-time setup while this repo is
-      # single-owner — see that repo's TODO.md "Reconsider later"). Both
-      # open the PR as a real collaborator either way, so ci.yml's `gate`
-      # starts on it normally — no first-time-contributor approval to
-      # click through.
-      token: ${{ secrets.RUST_UPDATE_PAT }}
-      app-id: ${{ secrets.RUST_UPDATE_APP_ID }}
-      app-private-key: ${{ secrets.RUST_UPDATE_APP_PRIVATE_KEY }}
+    # `inherit`, not a `secrets:` block naming RUST_UPDATE_PAT: the publish
+    # job reads the credential from this repository's `rust-update`
+    # environment, and an environment secret reaches a called workflow no
+    # other way. A secret passed by name reaches the runner of every job in
+    # the called workflow, the untrusted update job included, which is what
+    # this replaces — see that repository's docs/PAT.md (the PAT takes
+    # priority over the App credential there; either opens the PR as a real
+    # collaborator, so ci.yml's gate starts on it normally). The
+    # corresponding zizmor finding (secrets-inherit) is allowed for this file
+    # in .github/zizmor.yml, with the same reason.
+    secrets: inherit
     with:
       # Matches the Makefile's own `make test` invocation (`cargo test
       # --release`), plus `--locked` so a check cannot quietly re-resolve
