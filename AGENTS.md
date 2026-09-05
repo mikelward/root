@@ -281,6 +281,11 @@ reply, no offer to correct it. It is not a finding.
   node ID from `pull_request_read` / `get_review_comments`
   (`review_threads[].id`); a comment's `PRRC_*` ID fails. Push the fix first,
   then reply citing the new sha, then resolve.
+- **Restate every review finding in chat, not just the count.** One bullet
+  each: review comment, top-level comment or review body alike, most blocking
+  first — what it claims, where, and what you did about it, or the options
+  where it's the maintainer's call. Summarize them all in that one reply,
+  ahead of *keep replies short*; ask only the most blocking question.
 - **Read the Codex verdict, don't infer it.** It reacts to the PR body
   (`issue_read` → `reactions`), not to a review thread, whose `Useful?` bar
   reads true on any PR it has commented on. `eyes` means reading, `+1` means
