@@ -1,4 +1,4 @@
-name: CI
+name: ci
 
 # The real test gate this repository's ruleset can require (TODO.md "Run the
 # suite in CI"): the two suites AGENTS.md already calls mandatory before a
