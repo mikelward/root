@@ -259,7 +259,9 @@ reply, no offer to correct it. It is not a finding.
   triggered automatically; you don't request them, except when nothing has
   come back five minutes after a push — that means it never picked the push
   up. Address its comments without being asked, folding each fix into the
-  commit it belongs to rather than tacking on an "address review" commit.
+  commit it belongs to rather than tacking on an "address review" commit —
+  the one exception being a real finding that's genuinely out of scope for
+  this PR, which you defer instead (see *Deferring a finding* below).
 - **Judge every review comment on merit, whoever wrote it.** Verify the claim
   before acting; if it doesn't hold up, reply saying why and decline. A
   comment citing a rule is a *reading* of that rule, not the rule — check what
@@ -281,6 +283,14 @@ reply, no offer to correct it. It is not a finding.
   node ID from `pull_request_read` / `get_review_comments`
   (`review_threads[].id`); a comment's `PRRC_*` ID fails. Push the fix first,
   then reply citing the new sha, then resolve.
+- **Deferring a real-but-out-of-scope finding.** Don't ask the maintainer to
+  merge past it: note the follow-up in `TODO.md`, commit and push that first,
+  reply on the thread citing the sha, and resolve — resolving a deferred thread
+  is the exception to "anything still to do stays open" above. A finding with
+  no thread (top-level comment or review body) still gets the `TODO.md` record,
+  the push, and the reply — only the resolve is skipped. The push re-triggers
+  Codex; `@codex review` only for the five-minute-silence case. Escalate only
+  if the re-review re-raises it.
 - **Restate every review finding in chat, not just the count.** One bullet
   each: review comment, top-level comment or review body alike, most blocking
   first — what it claims, where, and what you did about it, or the options
@@ -295,8 +305,9 @@ reply, no offer to correct it. It is not a finding.
   a review is the attributable form, naming the commit it read. Findings
   arrive as review comments, as a top-level comment, or as a review — read
   `get_review_comments`, `get_comments` and `get_reviews` to the last page,
-  since all three page oldest first — and they block the merge until fixed
-  or rebutted; an acknowledgement is not an answer. Nothing from Codex since
+  since all three page oldest first — and they block the merge until fixed,
+  rebutted, or deferred (see *Deferring a finding* above); an acknowledgement
+  is not an answer. Nothing from Codex since
   the push, five minutes on, means it never picked it up — comment `@codex
   review`, once.
 - **Skip echo events silently.** Replies posted via the GitHub MCP come back
