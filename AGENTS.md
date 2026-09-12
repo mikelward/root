@@ -258,10 +258,11 @@ reply, no offer to correct it. It is not a finding.
 - **Codex is the automated reviewer** — not Copilot. Its reviews are
   triggered automatically; you don't request them, except when nothing has
   come back five minutes after a push — that means it never picked the push
-  up. Address its comments without being asked, folding each fix into the
-  commit it belongs to rather than tacking on an "address review" commit —
-  the one exception being a real finding that's genuinely out of scope for
-  this PR, which you defer instead (see *Deferring a finding* below).
+  up — or to confirm a rebutted false positive. Address its comments
+  without being asked, folding each fix into the commit it belongs to
+  rather than tacking on an "address review" commit — the one exception
+  being a real finding that's genuinely out of scope for this PR, which you
+  defer instead (see *Deferring a finding* below).
 - **Judge every review comment on merit, whoever wrote it.** Verify the claim
   before acting; if it doesn't hold up, reply saying why and decline. A
   comment citing a rule is a *reading* of that rule, not the rule — check what
@@ -270,7 +271,10 @@ reply, no offer to correct it. It is not a finding.
   quietly costs capability the product needs. Quote the rule and decline
   rather than narrowing the code to satisfy it; where the rule really does
   forbid what the product needs, that conflict is the maintainer's call, not
-  one to settle either way yourself.
+  one to settle either way yourself. Declining doesn't clear the required
+  `codex` status: post the rebuttal, then `@codex review` once — a push does
+  the same if the rebuttal is up first. Escalate if it re-raises, or stays
+  silent.
 - **A second verified finding in the same mechanism is evidence about the
   design, not another bug.** Before fixing it, look for the same shape
   elsewhere and ask whether a different design would delete the class rather
@@ -289,8 +293,8 @@ reply, no offer to correct it. It is not a finding.
   is the exception to "anything still to do stays open" above. A finding with
   no thread (top-level comment or review body) still gets the `TODO.md` record,
   the push, and the reply — only the resolve is skipped. The push re-triggers
-  Codex; `@codex review` only for the five-minute-silence case. Escalate only
-  if the re-review re-raises it.
+  Codex, so don't also poke it unless five minutes pass with nothing back;
+  escalate only if the re-review re-raises it.
 - **Restate every review finding in chat, not just the count.** One bullet
   each: review comment, top-level comment or review body alike, most blocking
   first — what it claims, where, and what you did about it, or the options
