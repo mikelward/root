@@ -263,9 +263,9 @@ reply, no offer to correct it. It is not a finding.
   you don't — and merge once CI is green and Codex's verdict for the current
   head is in.
 - **Codex is the automated reviewer** — not Copilot. Its reviews are
-  triggered automatically; you don't request them, except when nothing has
-  come back five minutes after a push — that means it never picked the push
-  up — or to confirm a rebutted false positive. Address its comments
+  triggered automatically; you don't request them, except to confirm a
+  rebutted false positive, or where *Read the Codex verdict* below says the
+  `codex` status is still pending. Address its comments
   without being asked, folding each fix into the commit it belongs to
   rather than tacking on an "address review" commit — the one exception
   being a real finding that's genuinely out of scope for this PR, which you
