@@ -319,9 +319,10 @@ reply, no offer to correct it. It is not a finding.
   `get_review_comments`, `get_comments` and `get_reviews` to the last page,
   since all three page oldest first — and they block the merge until fixed,
   rebutted, or deferred (see *Deferring a finding* above); an acknowledgement
-  is not an answer. Nothing from Codex since
-  the push, five minutes on, means it never picked it up — comment `@codex
-  review`, once.
+  is not an answer. Nothing from Codex since the push, five minutes on, or a
+  clean review that left no reaction, leaves the `codex` status pending —
+  comment `@codex review`, once; if that has not landed five minutes on,
+  escalate rather than poking again.
 - **Skip echo events silently.** Replies posted via the GitHub MCP come back
   moments later as webhook events authored by the same identity; if the body
   matches a comment you just posted, it's your own echo — continue without
