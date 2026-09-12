@@ -302,7 +302,7 @@ reply, no offer to correct it. It is not a finding.
   no thread (top-level comment or review body) still gets the `TODO.md` record,
   the push, and the reply — only the resolve is skipped. The push re-triggers
   Codex, so don't also poke it unless five minutes pass with nothing back;
-  escalate only if the re-review re-raises it.
+  escalate if the re-review re-raises it, or stays silent.
 - **Restate every review finding in chat, not just the count.** One bullet
   each: review comment, top-level comment or review body alike, most blocking
   first — what it claims, where, and what you did about it, or the options
