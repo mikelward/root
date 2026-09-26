@@ -262,17 +262,21 @@ reply, no offer to correct it. It is not a finding.
   review comment — fix it if you agree, reply on the thread saying why if
   you don't — and merge once CI is green and Codex's verdict for the current
   head is in.
-- **"Merge in order"** (or "drive in order") is *drive to merge* for PRs in
-  flight together, each merged only once every lower-numbered active PR has.
-  Waiting holds only the merge: keep driving a queued PR — review comments,
-  CI, rebases — so it is green with Codex's `+1` the moment it is the lowest.
-  Merge by hand, never auto-merge (disarm any already armed), rechecking the
-  lower PRs just before. Each merge moves the base, so rebase the next one per
-  the `dirty`/`behind` rule even where the ruleset allows `behind`, and merge
-  on its new verdict. Active means open, not a draft, and either green with a
-  `+1` and only waiting its turn, or opened, reopened, pushed to, reviewed or
-  commented on in the last 30 minutes; say which lower PRs you skipped as
-  stale.
+- **"Merge in order"** (or "drive in order") is *drive to merge* that yields
+  to older PRs close to landing. Merge by hand, never auto-merge (disarm any
+  already armed). Just before merging, check every open, non-draft,
+  lower-numbered PR against the same base: if one has ever passed Codex — a
+  "didn't find any major issues" comment, or a green `codex` commit status, on
+  any head — and has had any activity (a push, review, comment, reaction or
+  state change) in the last 30 minutes, wait for it. Keep waiting only while
+  it still meets all of that, and at most 30 minutes in total across every
+  recheck; if it still does at the cap, merge anyway and name the PR you
+  merged over. When a wait ends, rerun the check for the other lower PRs.
+  Waiting holds only the merge: keep driving this PR meanwhile. Then sync —
+  rebase onto the new base where the ruleset requires branches up to date, or
+  where it is `dirty` — and merge on the verdict for its current head, a fresh
+  one if that moved it, rerunning this check first. Say which lower PR you
+  waited on, or passed over as quiet.
 - **Codex is the automated reviewer** — not Copilot. Its reviews are
   triggered automatically; you don't request them, except to confirm a
   rebutted false positive, or where *Read the Codex verdict* below says the
