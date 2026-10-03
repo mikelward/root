@@ -171,13 +171,6 @@ For example, a command named `a`, newline, `b`, then byte `0xff` is logged as
 of outside text with `logging::escape`, and the C build formats each message
 and then escapes it whole with `escape_for_log()`.
 
-One exception, in the Rust build only: user and group names reach it through
-`nix`, which has already replaced any bytes that are not valid UTF-8 with
-U+FFFD, so such a name is logged with U+FFFD rather than `\xNN`. These names
-come from the system's user database, set by its administrator rather than
-the caller. Logging their raw bytes would take direct `getpwuid_r()` and
-`getgrgid_r()` calls; see `TODO.md`.
-
 ### Stderr
 
 Messages are also written to stderr if their priority is at or above the
@@ -216,9 +209,12 @@ and runs on:
 
 The Rust implementation depends on `libc` (for `openlog`/`syslog`) and `nix`
 (for `setuid`, `setgid`, `getgroups`, `initgroups`, `access`, `execv`, and the
-`User`/`Group` lookups). `nix` omits `getgroups` and `initgroups` on Apple
-targets, so on macOS `src/user.rs` calls libc's directly, with `nix`'s
-signatures. Argument parsing is hand-rolled to support POSIX `+` semantics
+`User` lookup of the target's group and home directory). `nix` omits
+`getgroups` and `initgroups` on Apple targets, so on macOS `src/user.rs` calls
+libc's directly, with `nix`'s signatures. User and group *names* come from
+libc's `getpwuid_r()` and `getgrgid_r()` rather than `nix`, whose `User` and
+`Group` convert names lossily, so a name that is not valid UTF-8 keeps its
+bytes for the log and for `initgroups()`. Argument parsing is hand-rolled to support POSIX `+` semantics
 (options stop at the first non-option).
 
 ### Portability notes
@@ -310,9 +306,10 @@ alias root='root '   # trailing space enables alias expansion
    user's identity.
 
 5. **Minimal attack surface** - Small Rust codebase. `unsafe` is confined to
-   the syslog FFI calls (`openlog`/`syslog`) and, on Apple targets only, the
-   `getgroups`/`initgroups` calls `nix` does not wrap there; all other system
-   calls go through safe `nix` wrappers.
+   the syslog FFI calls (`openlog`/`syslog`), the `getpwuid_r`/`getgrgid_r`
+   name lookups, and, on Apple targets only, the `getgroups`/`initgroups`
+   calls `nix` does not wrap there; all other system calls go through safe
+   `nix` wrappers.
 
 6. **Portability** - Uses POSIX APIs via `nix` and avoids OS-specific
    extensions so the code builds and runs on Linux, BSD, and macOS.
