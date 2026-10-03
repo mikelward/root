@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <pwd.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -54,82 +55,247 @@ const char *log_username(void)
 }
 
 /*
- * Return a string in the format "<tag>: <format><suffix>".
- *
- * Caller must free returned string.
+ * If s starts with a well-formed UTF-8 sequence for a non-ASCII code point,
+ * return its length (2 to 4) and store the code point in *cp; otherwise
+ * return 0. Overlong forms, surrogates and code points past U+10FFFF are not
+ * well formed (RFC 3629). Reading stops at the first byte that does not fit,
+ * so this never reads past the terminating NUL.
  */
-static char *makeformat(const char *tag, const char *format, const char *suffix)
+static size_t utf8_sequence(const unsigned char *s, unsigned long *cp)
 {
-    char *fmt = NULL; size_t fmtmax, fmtlen;
+    size_t length;
+    unsigned long c;
+    unsigned char low = 0x80, high = 0xBF;  /* allowed second byte */
 
-    fmtmax = strlen(tag) + strlen(": ") + strlen(format) + strlen(suffix) + 1;
-    fmt = malloc(fmtmax);
-    if (fmt == NULL) {
+    if (s[0] >= 0xC2 && s[0] <= 0xDF) {
+        length = 2;
+        c = s[0] & 0x1F;
+    }
+    else if (s[0] >= 0xE0 && s[0] <= 0xEF) {
+        length = 3;
+        c = s[0] & 0x0F;
+        if (s[0] == 0xE0) {
+            low = 0xA0;     /* no overlong forms */
+        }
+        else if (s[0] == 0xED) {
+            high = 0x9F;    /* no surrogates */
+        }
+    }
+    else if (s[0] >= 0xF0 && s[0] <= 0xF4) {
+        length = 4;
+        c = s[0] & 0x07;
+        if (s[0] == 0xF0) {
+            low = 0x90;     /* no overlong forms */
+        }
+        else if (s[0] == 0xF4) {
+            high = 0x8F;    /* nothing past U+10FFFF */
+        }
+    }
+    else {
+        return 0;
+    }
+
+    if (s[1] < low || s[1] > high) {
+        return 0;
+    }
+    c = (c << 6) | (s[1] & 0x3F);
+    for (size_t i = 2; i < length; i++) {
+        if (s[i] < 0x80 || s[i] > 0xBF) {
+            return 0;
+        }
+        c = (c << 6) | (s[i] & 0x3F);
+    }
+
+    *cp = c;
+    return length;
+}
+
+static size_t append_hex_escape(char *out, unsigned char byte)
+{
+    static const char digits[] = "0123456789abcdef";
+    out[0] = '\\';
+    out[1] = 'x';
+    out[2] = digits[byte >> 4];
+    out[3] = digits[byte & 0x0F];
+    return 4;
+}
+
+static void escape_into(char *escaped, const char *string);
+
+/*
+ * Return a copy of string with outside text made safe for a message: a
+ * backslash becomes "\\"; newline, carriage return and tab become "\n",
+ * "\r" and "\t"; any other control character (U+0000 to U+001F, U+007F to
+ * U+009F), and any byte that is not valid UTF-8, becomes "\xNN", one per
+ * byte. All other valid UTF-8 passes through, so each message stays one
+ * unambiguous line. The Rust build's logging::escape follows the same rules.
+ *
+ * Returns NULL if string is NULL or memory runs out.
+ * Caller must free the returned string.
+ */
+char *escape_for_log(const char *string)
+{
+    if (string == NULL) {
         return NULL;
     }
 
-    fmtlen = snprintf(fmt, fmtmax, "%s: %s%s", tag, format, suffix);
-    if (fmtlen >= fmtmax) {
-        /* Don't call writescreen or writelog, since that's how we got here. */
-        fprintf(stderr, "root: Unable to make log format\n");
-        syslog(LOG_CRIT, "root: Unable to make log format");
-        exit(1);
+    size_t length = strlen(string);
+    if (length > (SIZE_MAX - 1) / 4) {
+        return NULL;
+    }
+    /* Worst case: every byte becomes "\xNN". */
+    char *escaped = malloc(length * 4 + 1);
+    if (escaped == NULL) {
+        return NULL;
     }
 
-    return fmt;
+    escape_into(escaped, string);
+    return escaped;
 }
+
+/*
+ * Write string, escaped as escape_for_log() describes, into escaped, which
+ * must hold ESCAPED_SIZE(strlen(string) + 1) bytes. Allocates nothing.
+ */
+static void escape_into(char *escaped, const char *string)
+{
+    const unsigned char *s = (const unsigned char *)string;
+    size_t e = 0;
+    while (*s != '\0') {
+        unsigned long cp;
+        size_t seqlen;
+
+        if (*s == '\\' || *s == '\n' || *s == '\r' || *s == '\t') {
+            escaped[e++] = '\\';
+            escaped[e++] = *s == '\\' ? '\\' : *s == '\n' ? 'n'
+                         : *s == '\r' ? 'r' : 't';
+            s++;
+        }
+        else if (*s < 0x20 || *s == 0x7F) {
+            e += append_hex_escape(escaped + e, *s++);
+        }
+        else if (*s < 0x80) {
+            escaped[e++] = (char)*s++;
+        }
+        else if ((seqlen = utf8_sequence(s, &cp)) != 0) {
+            /* U+0080 to U+009F are control characters too. */
+            int control = cp <= 0x9F;
+            for (size_t i = 0; i < seqlen; i++) {
+                if (control) {
+                    e += append_hex_escape(escaped + e, s[i]);
+                }
+                else {
+                    escaped[e++] = (char)s[i];
+                }
+            }
+            s += seqlen;
+        }
+        else {
+            e += append_hex_escape(escaped + e, *s++);
+        }
+    }
+    escaped[e] = '\0';
+}
+
+/*
+ * Format a message and escape it with escape_for_log(), so no outside text
+ * reaches the log or the terminal raw.
+ *
+ * Returns NULL if memory runs out. Caller must free the returned string.
+ */
+static char *format_escaped(const char *format, va_list ap)
+{
+    va_list aq;
+    va_copy(aq, ap);
+    int length = vsnprintf(NULL, 0, format, aq);
+    va_end(aq);
+    if (length < 0) {
+        return NULL;
+    }
+
+    char *message = malloc((size_t)length + 1);
+    if (message == NULL) {
+        return NULL;
+    }
+    vsnprintf(message, (size_t)length + 1, format, ap);
+
+    char *escaped = escape_for_log(message);
+    free(message);
+    return escaped;
+}
+
+void format_escaped_bounded(char *out, size_t max_raw,
+                            const char *format, va_list ap)
+{
+    char raw[LOG_FALLBACK_MAX];
+    if (max_raw > sizeof raw) {
+        max_raw = sizeof raw;
+    }
+    vsnprintf(raw, max_raw, format, ap);
+    escape_into(out, raw);
+}
+
+static void format_escaped_bounded_args(char *out, size_t max_raw,
+                                        const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    format_escaped_bounded(out, max_raw, format, ap);
+    va_end(ap);
+}
+
+/* Room for any user name: Linux allows 32 bytes, the BSDs fewer. */
+#define USERNAME_MAX 256
 
 void writelog(int priority, const char *format, va_list ap)
 {
-    char *logformat = NULL;
-    char *escapedusername = NULL;
-
-    escapedusername = escape_percents(log_username());
-    if (escapedusername == NULL) {
-        vsyslog(priority, format, ap);
-        return;
+    va_list fallback_ap;
+    va_copy(fallback_ap, ap);
+    char *message = format_escaped(format, ap);
+    char fallback[ESCAPED_SIZE(LOG_FALLBACK_MAX)];
+    if (message == NULL) {
+        /*
+         * Out of memory: keep the arguments, so the record still names the
+         * command, cut short if need be but still escaped.
+         */
+        format_escaped_bounded(fallback, LOG_FALLBACK_MAX, format, fallback_ap);
     }
-    logformat = makeformat(escapedusername, format, "");
-    if (logformat == NULL) {
-        free(escapedusername);
-        vsyslog(priority, format, ap);
-        return;
-    }
+    va_end(fallback_ap);
 
-    vsyslog(priority, logformat, ap);
+    char user[ESCAPED_SIZE(USERNAME_MAX)];
+    format_escaped_bounded_args(user, USERNAME_MAX, "%s", log_username());
 
-    free(escapedusername);
-    free(logformat);
+    /*
+     * Only constant "%s" formats reach syslog, so no outside text is read as
+     * a format.
+     */
+    syslog(priority, "%s: %s", user, message != NULL ? message : fallback);
+
+    free(message);
 }
 
 void writescreen(int priority, const char *format, va_list ap)
 {
-    char *screenformat = NULL;
-    char *escapedprogname = NULL;
-
     /* only print messages at loglevel or "lower" priority */
     /* with syslog, lowest means most important */
     if (priority > loglevel) {
         return;
     }
 
-    escapedprogname = escape_percents(g_progname);
-    if (escapedprogname == NULL) {
-        vfprintf(stderr, format, ap);
-        fprintf(stderr, "\n");
-        return;
+    va_list fallback_ap;
+    va_copy(fallback_ap, ap);
+    char *message = format_escaped(format, ap);
+    char fallback[ESCAPED_SIZE(LOG_FALLBACK_MAX)];
+    if (message == NULL) {
+        /* As in writelog: out of memory, keep the arguments. */
+        format_escaped_bounded(fallback, LOG_FALLBACK_MAX, format, fallback_ap);
     }
-    screenformat = makeformat(escapedprogname, format, "\n");
-    if (screenformat == NULL) {
-        free(escapedprogname);
-        vfprintf(stderr, format, ap);
-        fprintf(stderr, "\n");
-        return;
-    }
-    vfprintf(stderr, screenformat, ap);
+    va_end(fallback_ap);
 
-    free(escapedprogname);
-    free(screenformat);
+    fprintf(stderr, "%s: %s\n",
+            g_progname != NULL ? g_progname : "root",
+            message != NULL ? message : fallback);
+    free(message);
 }
 
 void debug(const char *format, ...)
@@ -154,10 +320,6 @@ void error(const char *format, ...)
     va_end(ap);
 }
 
-/*
- * XXX how to escape control characters,
- *     e.g. what if command name contains backspaces?
- */
 void info(const char *format, ...)
 {
     va_list ap;
@@ -192,38 +354,6 @@ const char *get_username(uid_t uid)
     }
 
     return ppw->pw_name;
-}
-
-/* caller must free returned string */
-char *escape_percents(const char *string)
-{
-    char *escaped;
-    size_t length;
-    size_t spos, epos;
-
-    if (string == NULL) {
-        return NULL;
-    }
-
-    length = strlen(string);
-    escaped = malloc(length * 2 + 1);
-
-    if (escaped == NULL) {
-        return NULL;
-    }
-
-    for (spos = 0, epos = 0; string[spos] != '\0'; spos++) {
-        if (string[spos] == '%') {
-            escaped[epos++] = '%';
-            escaped[epos++] = '%';
-        }
-        else {
-            escaped[epos++] = string[spos];
-        }
-    }
-    escaped[epos] = '\0';
-
-    return escaped;
 }
 
 /* vim: set ts=4 sw=4 tw=0 et:*/

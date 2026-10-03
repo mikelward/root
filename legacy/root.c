@@ -40,6 +40,7 @@ static void ensure_permitted(void);
 static void become_root(void);
 static void run_command(const char *absolute_command, const char *const *args);
 static void usage(void);
+static char *escape_or_exit(const char *string);
 
 int main(int argc, const char *const *argv)
 {
@@ -267,9 +268,13 @@ void find_and_verify_command(const char *command, char **path_commandp)
          * relative match and exit 125 rather than 127.
          */
         char *absolute_command = resolve_for_message(path_command);
+        char *shown_command = escape_or_exit(command);
+        char *shown_absolute = escape_or_exit(absolute_command);
         print("You tried to run %s, but this would run %s\n",
-              command,
-              absolute_command);
+              shown_command,
+              shown_absolute);
+        free(shown_command);
+        free(shown_absolute);
         print("This has been prevented because it is potentially unsafe\n");
         print("Consider removing the following entries from your PATH:");
         print_unsafe_path_entries(pathenv);
@@ -306,7 +311,9 @@ int command_is_safe(const char *path_command)
 static void print_if_unsafe(const char *dir)
 {
     if (!command_is_safe(dir)) {
-        print(" \"%s\"", dir);
+        char *shown = escape_or_exit(dir);
+        print(" \"%s\"", shown);
+        free(shown);
     }
 }
 
@@ -369,6 +376,20 @@ void run_command(const char *absolute_command, const char *const *args)
         exit(ROOT_ERROR_EXECUTING_COMMAND);
     }
     /* execv does not return on success */
+}
+
+/*
+ * escape_for_log() for print(), which bypasses the logger's own escaping.
+ * Exits if memory runs out. The caller frees the result.
+ */
+char *escape_or_exit(const char *string)
+{
+    char *escaped = escape_for_log(string);
+    if (escaped == NULL) {
+        error("Cannot allocate memory to escape a message");
+        exit(ROOT_SYSTEM_ERROR);
+    }
+    return escaped;
 }
 
 void usage(void)

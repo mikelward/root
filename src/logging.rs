@@ -1,5 +1,7 @@
-use std::ffi::{CStr, CString};
+use std::ffi::{CStr, CString, OsStr};
+use std::fmt::Write as _;
 use std::io::Write;
+use std::os::unix::ffi::OsStrExt;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::OnceLock;
 
@@ -60,12 +62,51 @@ fn caller() -> &'static str {
     })
 }
 
+/// Text from outside the program, escaped for a message.
+///
+/// Command names, paths, PATH entries, option strings and user and group
+/// names can hold anything but NUL, and a newline or terminal escape in
+/// them could forge or hide lines in the audit log. So a backslash becomes
+/// `\\`; newline, carriage return and tab become `\n`, `\r` and `\t`; any
+/// other control character (U+0000 to U+001F, U+007F to U+009F), and any
+/// byte that is not valid UTF-8, becomes `\xNN`, one per byte. All other
+/// valid UTF-8 passes through, so each message stays one unambiguous line.
+/// The C build's `escape_for_log()` follows the same rules.
+pub fn escape(text: &OsStr) -> String {
+    let mut out = String::with_capacity(text.len());
+    for chunk in text.as_bytes().utf8_chunks() {
+        for c in chunk.valid().chars() {
+            match c {
+                '\\' => out.push_str("\\\\"),
+                '\n' => out.push_str("\\n"),
+                '\r' => out.push_str("\\r"),
+                '\t' => out.push_str("\\t"),
+                c if c.is_control() => {
+                    for &b in c.encode_utf8(&mut [0; 4]).as_bytes() {
+                        push_hex_escape(&mut out, b);
+                    }
+                }
+                c => out.push(c),
+            }
+        }
+        for &b in chunk.invalid() {
+            push_hex_escape(&mut out, b);
+        }
+    }
+    out
+}
+
+fn push_hex_escape(out: &mut String, byte: u8) {
+    // Writing to a String cannot fail.
+    let _ = write!(out, "\\x{byte:02x}");
+}
+
 #[allow(unsafe_code)] // libc::syslog FFI — format is hardcoded "%s\0", arg is CString
 fn write_syslog(priority: i32, message: &str) {
     // The message is passed as an argument to the constant "%s" format
     // string, so user-controlled content (usernames, command names) is
     // never interpreted as a format string and needs no escaping.
-    let full = format!("{}: {}", caller(), message);
+    let full = format!("{}: {}", escape(OsStr::new(caller())), message);
     let Ok(c_msg) = CString::new(full) else {
         return;
     };
@@ -123,6 +164,45 @@ macro_rules! print_stderr {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // The cases match the C build's escape tests in legacy/loggingtest.c, so
+    // the two builds escape alike.
+    fn esc(bytes: &[u8]) -> String {
+        escape(OsStr::from_bytes(bytes))
+    }
+
+    #[test]
+    fn escape_leaves_plain_text_alone() {
+        assert_eq!(esc(b"/usr/bin/ls"), "/usr/bin/ls");
+        assert_eq!(esc("/home/jos\u{e9}/bin".as_bytes()), "/home/jos\u{e9}/bin");
+        assert_eq!(esc(b""), "");
+        assert_eq!(esc(b"%sally"), "%sally");
+    }
+
+    #[test]
+    fn escape_marks_backslashes_and_whitespace() {
+        assert_eq!(esc(b"a\\b"), "a\\\\b");
+        assert_eq!(esc(b"a\nb\rc\td"), "a\\nb\\rc\\td");
+    }
+
+    #[test]
+    fn escape_hex_escapes_control_characters() {
+        assert_eq!(esc(b"\x1b[2K"), "\\x1b[2K");
+        assert_eq!(esc(b"\x01\x7f"), "\\x01\\x7f");
+        // U+009B, the one-byte CSI some terminals honor, as UTF-8.
+        assert_eq!(esc(b"\xc2\x9b"), "\\xc2\\x9b");
+    }
+
+    #[test]
+    fn escape_hex_escapes_invalid_utf8() {
+        assert_eq!(esc(b"\xff"), "\\xff");
+        // A truncated sequence, an overlong form and a surrogate.
+        assert_eq!(esc(b"\xe2\x82A"), "\\xe2\\x82A");
+        assert_eq!(esc(b"\xc0\xaf"), "\\xc0\\xaf");
+        assert_eq!(esc(b"\xed\xa0\x80"), "\\xed\\xa0\\x80");
+        // A sequence cut short by the end of the string.
+        assert_eq!(esc(b"\xf0\x9f\x98"), "\\xf0\\x9f\\x98");
+    }
 
     #[test]
     fn level_default_and_set() {
