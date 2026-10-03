@@ -2,6 +2,7 @@
 #define _BSD_SOURCE     /* for strdup() */
 
 #include <assert.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -12,58 +13,117 @@
 
 #include "logging.h"
 
-void testescape1(void);
-void testescape2(void);
-void testescape3(void);
+void testescapeplain(void);
+void testescapebackslashesandwhitespace(void);
+void testescapecontrol(void);
+void testescapeinvalidutf8(void);
+void testescapenull(void);
+void testformatescapedbounded(void);
 void testsetloglevel(void);
 void testusernamesurvivessetuid(void);
 
 int main(int argc, const char *argv[])
 {
-    testescape1();
-    testescape2();
-    testescape3();
+    testescapeplain();
+    testescapebackslashesandwhitespace();
+    testescapecontrol();
+    testescapeinvalidutf8();
+    testescapenull();
+    testformatescapedbounded();
     testsetloglevel();
     testusernamesurvivessetuid();
 
     return 0;
 }
 
-void testescape1(void)
+/*
+ * The cases match the Rust build's escape tests in src/logging.rs, so the
+ * two builds escape alike.
+ */
+static void checkescape(const char *input, const char *expected)
 {
-    char *input = "mikel";
-    char *expected = "mikel";
-    char *actual;
-    
-    printf("Running %s\n", __func__);
-    actual = escape_percents(input);
-
-    assert(strcmp(actual, expected) == 0);
+    char *actual = escape_for_log(input);
+    assert(actual != NULL);
+    if (strcmp(actual, expected) != 0) {
+        fprintf(stderr, "escape_for_log: got \"%s\", want \"%s\"\n",
+                actual, expected);
+        assert(strcmp(actual, expected) == 0);
+    }
     free(actual);
 }
 
-void testescape2(void)
+void testescapeplain(void)
 {
-    char *input = NULL;
-    char *actual;
-    
     printf("Running %s\n", __func__);
-    actual = escape_percents(input);
-
-    assert(actual == NULL);
+    checkescape("/usr/bin/ls", "/usr/bin/ls");
+    checkescape("/home/jos\xc3\xa9/bin", "/home/jos\xc3\xa9/bin");
+    checkescape("", "");
+    /* No longer passed as a format, so % needs no escaping. */
+    checkescape("%sally", "%sally");
 }
 
-void testescape3(void)
+void testescapebackslashesandwhitespace(void)
 {
-    char *input = "%sally";
-    char *expected = "%%sally";
-    char *actual;
-    
     printf("Running %s\n", __func__);
-    actual = escape_percents(input);
+    checkescape("a\\b", "a\\\\b");
+    checkescape("a\nb\rc\td", "a\\nb\\rc\\td");
+}
 
-    assert(strcmp(actual, expected) == 0);
-    free(actual);
+void testescapecontrol(void)
+{
+    printf("Running %s\n", __func__);
+    checkescape("\x1b[2K", "\\x1b[2K");
+    checkescape("\x01\x7f", "\\x01\\x7f");
+    /* U+009B, the one-byte CSI some terminals honor, as UTF-8. */
+    checkescape("\xc2\x9b", "\\xc2\\x9b");
+}
+
+void testescapeinvalidutf8(void)
+{
+    printf("Running %s\n", __func__);
+    checkescape("\xff", "\\xff");
+    /* A truncated sequence, an overlong form and a surrogate. */
+    checkescape("\xe2\x82" "A", "\\xe2\\x82A");
+    checkescape("\xc0\xaf", "\\xc0\\xaf");
+    checkescape("\xed\xa0\x80", "\\xed\\xa0\\x80");
+    /* A sequence cut short by the end of the string. */
+    checkescape("\xf0\x9f\x98", "\\xf0\\x9f\\x98");
+}
+
+void testescapenull(void)
+{
+    printf("Running %s\n", __func__);
+    assert(escape_for_log(NULL) == NULL);
+}
+
+static void bounded(char *out, size_t max_raw, const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    format_escaped_bounded(out, max_raw, format, ap);
+    va_end(ap);
+}
+
+/*
+ * The fallback writelog() uses when memory runs out must keep a record's
+ * arguments, escaped, and never overrun its buffer.
+ */
+void testformatescapedbounded(void)
+{
+    printf("Running %s\n", __func__);
+    char out[ESCAPED_SIZE(16)];
+
+    bounded(out, 16, "Running %s", "a\nb");
+    assert(strcmp(out, "Running a\\nb") == 0);
+
+    /* Too long for the bound: cut to 15 bytes, then escaped. */
+    bounded(out, 16, "Running %s", "/usr/local/bin/x");
+    assert(strcmp(out, "Running /usr/lo") == 0);
+
+    /* The worst case, every kept byte escaped, still fits. */
+    bounded(out, 16, "%s", "\x01\x01\x01\x01\x01\x01\x01\x01"
+                           "\x01\x01\x01\x01\x01\x01\x01\x01\x01");
+    assert(strlen(out) == 15 * 4);
 }
 
 void testsetloglevel(void)

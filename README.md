@@ -44,6 +44,17 @@ Usage
 Just write `root` before the command you want to run as root,
 e.g. `root vi /etc/fstab`.
 
+Logging
+-------
+Each command `root` runs is logged to syslog (the `authpriv` facility),
+naming the calling user and the full path of the command.
+
+Unusual characters in command names and paths are escaped in log and
+error messages, so each entry stays on one line: a backslash is shown
+as `\\`, a newline, carriage return or tab as `\n`, `\r` or `\t`, and
+other control characters and bytes that are not valid UTF-8 as `\xNN`.
+Ordinary text, including non-ASCII letters, is shown as is.
+
 More Info
 ---------
 See the root(1) man page for more details.

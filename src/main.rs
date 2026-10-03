@@ -24,7 +24,7 @@ fn main() {
     let (opts, command_args) = match args::parse(&argv) {
         Ok(v) => v,
         Err(args::ParseError::UnknownOption(o)) => {
-            error!("Unknown option: {}", o.to_string_lossy());
+            error!("Unknown option: {}", logging::escape(&o));
             usage();
             std::process::exit(exit_code::INVALID_USAGE);
         }
@@ -45,7 +45,7 @@ fn main() {
         std::process::exit(exit_code::INVALID_USAGE);
     }
 
-    debug!("Command to run is {}", command.to_string_lossy());
+    debug!("Command to run is {}", logging::escape(command));
 
     // Check permission before resolving the command: resolution runs with
     // the setuid binary's elevated privileges (realpath traverses with
@@ -56,7 +56,7 @@ fn main() {
     let absolute_command = resolve_command(command);
 
     // Log before dropping the calling user's identity so syslog records who ran it.
-    info!("Running {}", absolute_command.display());
+    info!("Running {}", logging::escape(absolute_command.as_os_str()));
 
     become_root(opts.set_home);
 
@@ -78,7 +78,7 @@ fn get_absolute_command(qualified: &OsStr) -> PathBuf {
         Err(e) => {
             error!(
                 "Cannot determine real path to {}: {e}",
-                qualified.to_string_lossy()
+                logging::escape(qualified)
             );
             std::process::exit(exit_code::COMMAND_NOT_FOUND);
         }
@@ -96,12 +96,12 @@ fn find_and_verify_command(command: &OsStr) -> PathBuf {
 
     debug!(
         "Searching for command in PATH={}",
-        pathenv.to_string_lossy()
+        logging::escape(&pathenv)
     );
     let path_command = match path::get_command_path(command, &pathenv) {
         Some(p) => p,
         None => {
-            error!("Cannot find {} in PATH", command.to_string_lossy());
+            error!("Cannot find {} in PATH", logging::escape(command));
             std::process::exit(exit_code::COMMAND_NOT_FOUND);
         }
     };
@@ -109,13 +109,13 @@ fn find_and_verify_command(command: &OsStr) -> PathBuf {
     if !path::is_absolute_path(path_command.as_os_str()) {
         error!(
             "Attempt to run relative PATH command {}",
-            path_command.display()
+            logging::escape(path_command.as_os_str())
         );
         let absolute = std::fs::canonicalize(&path_command).unwrap_or_else(|_| path_command.clone());
         print_stderr!(
             "You tried to run {}, but this would run {}\n",
-            command.to_string_lossy(),
-            absolute.display()
+            logging::escape(command),
+            logging::escape(absolute.as_os_str())
         );
         print_stderr!("This has been prevented because it is potentially unsafe\n");
         print_stderr!("Consider removing the following entries from your PATH:");
@@ -131,7 +131,7 @@ fn find_and_verify_command(command: &OsStr) -> PathBuf {
 fn print_unsafe_path_entries(pathenv: &OsStr) {
     path::pathenv_each(pathenv, |dir| {
         if !path::is_absolute_path(dir) {
-            print_stderr!(" \"{}\"", dir.to_string_lossy());
+            print_stderr!(" \"{}\"", logging::escape(dir));
         }
     });
     print_stderr!("\n");
@@ -140,7 +140,10 @@ fn print_unsafe_path_entries(pathenv: &OsStr) {
 fn ensure_permitted() {
     if !user::in_group(ROOT_GID) {
         match user::get_group_name(ROOT_GID) {
-            Some(name) => error!("You must be in the {name} group to run root"),
+            Some(name) => error!(
+                "You must be in the {} group to run root",
+                logging::escape(OsStr::new(&name))
+            ),
             None => error!("You must be in group {ROOT_GID} to run root"),
         }
         std::process::exit(exit_code::PERMISSION_DENIED);
@@ -183,7 +186,7 @@ fn exec_command(absolute: &Path, argv: &[OsString]) {
     match execv(&c_path, &c_args) {
         Ok(_) => unreachable!("execv returned Ok"),
         Err(e) => {
-            error!("Cannot exec '{}': {}", absolute.display(), e);
+            error!("Cannot exec '{}': {}", logging::escape(absolute.as_os_str()), e);
             std::process::exit(exit_code::ERROR_EXECUTING_COMMAND);
         }
     }

@@ -40,7 +40,35 @@ const char *get_username(uid_t uid);
  */
 const char *log_username(void);
 
-char *escape_percents(const char *string);
+/*
+ * Copy string with backslashes, control characters and invalid UTF-8
+ * escaped, so outside text cannot forge or hide lines in a message.
+ * Returns NULL if string is NULL or memory runs out; the caller frees it.
+ */
+char *escape_for_log(const char *string);
+
+/*
+ * Bytes needed for an escaped copy of up to n - 1 raw bytes, NUL included:
+ * at worst every byte becomes "\xNN".
+ */
+#define ESCAPED_SIZE(n) (4 * ((n) - 1) + 1)
+
+/*
+ * The longest message, in raw bytes with its NUL, that writelog() and
+ * writescreen() keep when memory runs out: room for a PATH_MAX path and
+ * the text around it.
+ */
+#define LOG_FALLBACK_MAX (4096 + 256)
+
+/*
+ * Format a message into out and escape it as escape_for_log() does, without
+ * allocating: the formatted message is first cut to max_raw - 1 bytes
+ * (max_raw at most LOG_FALLBACK_MAX), and out must hold ESCAPED_SIZE(max_raw)
+ * bytes. writelog() and writescreen() fall back to this when memory runs out,
+ * so a record keeps its arguments.
+ */
+void format_escaped_bounded(char *out, size_t max_raw,
+                            const char *format, va_list ap);
 
 #endif
 /* vim: set ts=4 sw=4 tw=0 et:*/

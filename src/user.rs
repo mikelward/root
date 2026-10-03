@@ -1,4 +1,4 @@
-use std::ffi::CString;
+use std::ffi::{CString, OsStr};
 
 #[cfg(not(target_vendor = "apple"))]
 use nix::unistd::{getgroups, initgroups};
@@ -7,6 +7,7 @@ use nix::unistd::{getgid, setgid, setuid, Gid, Group, Uid, User};
 #[cfg(target_vendor = "apple")]
 use self::libc_groups::{getgroups, initgroups};
 use crate::exit_code;
+use crate::logging;
 use crate::{debug, error};
 
 /// `getgroups` and `initgroups` straight from libc, with `nix`'s signatures.
@@ -118,7 +119,11 @@ pub fn setup_groups(uid: u32) {
     };
 
     if let Err(e) = initgroups(&cname, user.gid) {
-        error!("Cannot initgroups for {}: {}", user.name, e);
+        error!(
+            "Cannot initgroups for {}: {}",
+            logging::escape(OsStr::new(&user.name)),
+            e
+        );
         std::process::exit(exit_code::SYSTEM_ERROR);
     }
 }
@@ -130,7 +135,7 @@ pub fn set_home_dir(uid: u32) -> bool {
     let user = target_user(uid);
     // `set_var` is safe in a single-threaded program; main has not spawned threads.
     std::env::set_var("HOME", &user.dir);
-    debug!("Set HOME to {}", user.dir.display());
+    debug!("Set HOME to {}", logging::escape(user.dir.as_os_str()));
     true
 }
 

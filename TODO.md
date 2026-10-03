@@ -28,12 +28,15 @@ the alternative was, and why it is reversible.
 Found in a bug and security sweep and left out of that change because each
 needs a decision or a test harness the suites don't have yet.
 
-- [ ] **The audit record passes control characters through and drops
-      invalid UTF-8.** A command path can carry newlines or terminal
-      escapes into syslog, and the Rust build logs non-UTF-8 bytes as
-      U+FFFD, so two different paths can log the same. The C build
-      already flags this (`XXX how to escape control characters`).
-      Escaping changes the audit format, so it is the maintainer's call.
+- [ ] **Log non-UTF-8 user and group names byte for byte in the Rust
+      build.** `nix` builds `User::name` and `Group::name` with
+      `to_string_lossy`, so `logging::escape` sees U+FFFD instead of the
+      raw bytes, and two such names can log alike; the C build already
+      escapes the raw bytes. The names come from the user database, set by
+      its administrator rather than the caller, and Linux's own tools only
+      create ASCII names. Getting the bytes means calling `getpwuid_r()`
+      and `getgrgid_r()` directly, which is new unsafe code beyond the
+      syslog and Apple group calls, so it needs the maintainer's call.
 - [ ] **Consider finding root-only executables in PATH.** The lookup
       tests each candidate with `access(X_OK)`, which uses the caller's
       real UID, so a root-only file (mode 0700) is skipped:

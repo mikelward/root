@@ -176,3 +176,25 @@ fn not_in_group_zero_exits_123() {
         .expect("failed to run root");
     assert_eq!(out.status.code(), Some(123));
 }
+
+#[test]
+fn messages_escape_untrusted_text() {
+    // A command name holding a newline, an ESC and a byte that is not
+    // UTF-8. Logged raw, it could forge or hide audit lines; `-d` shows the
+    // debug line naming it, which comes before the permission check.
+    let cmd = OsString::from_vec(b"bad\ncmd\x1b\xff".to_vec());
+    let out = Command::new(root_bin())
+        .arg("-d")
+        .arg(&cmd)
+        .env("PATH", "/usr/bin:/bin")
+        .output()
+        .expect("failed to run root");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("Command to run is bad\\ncmd\\x1b\\xff\n"),
+        "stderr was: {stderr}"
+    );
+    assert!(!out.stderr.contains(&0x1b), "raw ESC in stderr: {stderr}");
+    assert!(!out.stderr.contains(&0xff), "raw 0xff in stderr: {stderr}");
+    assert_eq!(out.status.code(), Some(expected_code(127)));
+}

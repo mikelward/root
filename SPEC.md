@@ -152,7 +152,31 @@ once, when logging starts, so messages logged after becoming root (an
 `execv()` failure, say) still name the caller rather than `root`. Messages are
 passed to `syslog()` as an argument to a constant `"%s"` format string, so
 user-controlled content (usernames, command names) is never interpreted as a
-format string and needs no escaping.
+format string.
+
+Outside text in a message (command names, paths, `PATH` entries, option
+strings, user and group names) is escaped, so a newline or terminal escape in
+it cannot forge or hide audit lines, and two different paths never log the
+same:
+
+- A backslash becomes `\\`.
+- Newline, carriage return and tab become `\n`, `\r` and `\t`.
+- Any other control character (U+0000 to U+001F, U+007F to U+009F), and any
+  byte that is not valid UTF-8, becomes `\xNN`, one per byte, in lowercase
+  hex.
+- All other valid UTF-8 passes through unchanged.
+
+For example, a command named `a`, newline, `b`, then byte `0xff` is logged as
+`a\nb\xff`. Both builds escape identically: the Rust build escapes each piece
+of outside text with `logging::escape`, and the C build formats each message
+and then escapes it whole with `escape_for_log()`.
+
+One exception, in the Rust build only: user and group names reach it through
+`nix`, which has already replaced any bytes that are not valid UTF-8 with
+U+FFFD, so such a name is logged with U+FFFD rather than `\xNN`. These names
+come from the system's user database, set by its administrator rather than
+the caller. Logging their raw bytes would take direct `getpwuid_r()` and
+`getgrgid_r()` calls; see `TODO.md`.
 
 ### Stderr
 
@@ -162,7 +186,8 @@ The `-d`/`--debug` flag lowers the threshold to `LOG_DEBUG`, showing all
 messages on stderr.
 
 The `print()` function writes directly to stderr without going through syslog
-(used for user-facing messages like PATH safety warnings).
+(used for user-facing messages like PATH safety warnings). Outside text in
+those messages is escaped the same way.
 
 ## Exit Codes
 
