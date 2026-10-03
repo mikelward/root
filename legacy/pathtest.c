@@ -197,6 +197,21 @@ void test_get_command_path_skips_directories(void)
     rmdir(base);
 }
 
+void test_resolve_for_message(void)
+{
+    printf("Running %s\n", __func__);
+
+    /* An unresolvable path comes back as given instead of exiting. */
+    char *missing = resolve_for_message("./no/such/command");
+    assert(strcmp(missing, "./no/such/command") == 0);
+    free(missing);
+
+    /* A resolvable one comes back absolute. */
+    char *dot = resolve_for_message(".");
+    assert(is_absolute_path(dot));
+    free(dot);
+}
+
 int main(int argc, const char *argv[])
 {
     test_pathenv_each_basic();
@@ -210,6 +225,7 @@ int main(int argc, const char *argv[])
     test_is_qualified_path();
     test_is_unqualified_path();
     test_get_command_path_skips_directories();
+    test_resolve_for_message();
 
     return 0;
 }

@@ -2,6 +2,7 @@
 #define _BSD_SOURCE     /* for strdup() */
 
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -102,6 +103,40 @@ char *get_command_path(const char *command, const char *pathenv)
     debug("%s not found in PATH", command);
     free(pathenvcopy);
     return NULL;
+}
+
+/*
+ * Return path made absolute by realpath(), for showing the user what a
+ * command resolves to. If realpath() fails (for example because the current
+ * directory's absolute path exceeds PATH_MAX), return path unchanged rather
+ * than exit, so the caller can still report what it found.
+ *
+ * Never execute the result: it is for messages only.
+ * The returned string must be freed by the caller.
+ */
+char *resolve_for_message(const char *path)
+{
+    if (path == NULL) {
+        error("resolve_for_message: path is NULL");
+        exit(ROOT_PROGRAMMER_ERROR);
+    }
+
+    char resolved[PATH_MAX];
+    const char *shown = path;
+    errno = 0;
+    if (realpath(path, resolved) != NULL) {
+        shown = resolved;
+    }
+    else {
+        debug("Cannot determine real path to %s: %s", path, strerror(errno));
+    }
+
+    char *copy = strdup(shown);
+    if (copy == NULL) {
+        error("Cannot allocate memory for path");
+        exit(ROOT_SYSTEM_ERROR);
+    }
+    return copy;
 }
 
 /**
