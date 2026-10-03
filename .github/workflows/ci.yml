@@ -101,6 +101,57 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/pull/{0}/merge', inputs.pr) || github.sha }}
       - run: make -C legacy test
 
+  # FreeBSD and macOS are platforms SPEC.md supports but no runner here is, so
+  # this checks them by cross-compiling on Ubuntu, the way mikelward/mesh does,
+  # rather than paying for a macOS image. It catches code that doesn't build or
+  # link there (macOS needs its own group calls in src/user.rs), but it never
+  # runs a test on either platform.
+  cross:
+    name: cross-check
+    runs-on: ubuntu-latest
+    needs: classify
+    if: needs.classify.outputs.docs_only != 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          # Same reasoning as the test job above.
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/pull/{0}/merge', inputs.pr) || github.sha }}
+
+      - name: Install FreeBSD and macOS targets
+        run: rustup target add x86_64-unknown-freebsd aarch64-apple-darwin
+
+      # `cargo check` stops short of linking, so FreeBSD needs no cross linker
+      # or sysroot.
+      - name: Check FreeBSD
+        run: cargo check --all-targets --target x86_64-unknown-freebsd
+
+      # Zig ships the macOS libc headers and link stubs, so both builds can be
+      # compiled and linked for macOS here, test binaries included (built, not
+      # run): that goes past `cargo check` to code generation and to symbol
+      # resolution against libSystem. cargo-zigbuild drives Zig as the linker
+      # and supplies the libiconv the Rust standard library links on Apple,
+      # which would otherwise need Apple's SDK.
+      #
+      # Zig comes from PyPI's `ziglang` package rather than setup-zig, whose
+      # random community mirror once took over five minutes to serve it. With
+      # the venv first on PATH, cargo-zigbuild finds that Zig through
+      # `python3 -m ziglang`. Both are pinned, so a Zig release with new
+      # warnings cannot turn the -Werror C build red with no change here.
+      - name: Install Zig and cargo-zigbuild
+        run: |
+          python3 -m venv "$RUNNER_TEMP/zig"
+          "$RUNNER_TEMP/zig/bin/pip" install --quiet ziglang==0.16.0 cargo-zigbuild==0.23.4
+          echo "$RUNNER_TEMP/zig/bin" >> "$GITHUB_PATH"
+
+      # Apple Silicon only: the macOS code keys on the vendor, not the
+      # architecture, so x86_64 would add no coverage.
+      - name: Build for macOS
+        run: cargo zigbuild --all-targets --target aarch64-apple-darwin
+
+      - name: Build the C fallback for macOS
+        run: make -C legacy CC="python3 -m ziglang cc -target aarch64-macos" root loggingtest.o pathtest.o argstest.o
+
   # The one check the ruleset should require. Always runs, always reports —
   # green only when the heavy jobs succeeded, or when they were skipped and
   # the skip is INDEPENDENTLY verified as justified: the diff re-derived as
@@ -110,7 +161,7 @@ jobs:
     name: lanes
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [classify, test, legacy-test]
+    needs: [classify, test, legacy-test, cross]
     if: always()
     steps:
       - uses: actions/checkout@v5
@@ -128,3 +179,4 @@ jobs:
           results: >-
             test=${{ needs.test.result }}
             legacy-test=${{ needs.legacy-test.result }}
+            cross=${{ needs.cross.result }}
