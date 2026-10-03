@@ -1,11 +1,11 @@
-use std::ffi::{CStr, CString, OsStr};
+use std::ffi::{CStr, CString, OsStr, OsString};
 use std::fmt::Write as _;
 use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::OnceLock;
 
-use nix::unistd::{Uid, User};
+use nix::unistd::Uid;
 
 pub use libc::{LOG_DEBUG, LOG_ERR, LOG_INFO};
 
@@ -13,7 +13,7 @@ const FMT_STR: &[u8] = b"%s\0";
 
 static LOG_LEVEL: AtomicI32 = AtomicI32::new(LOG_ERR);
 static PROGNAME: OnceLock<&'static CStr> = OnceLock::new();
-static CALLER: OnceLock<String> = OnceLock::new();
+static CALLER: OnceLock<OsString> = OnceLock::new();
 
 /// The ident most recently handed to `openlog()`, so a test can check that
 /// syslog always holds the name `PROGNAME` keeps alive.
@@ -55,10 +55,10 @@ pub fn level() -> i32 {
 ///
 /// `init` captures it before anything else runs, so lines logged after
 /// `setuid(0)` still name the caller rather than root.
-fn caller() -> &'static str {
-    CALLER.get_or_init(|| match User::from_uid(Uid::current()) {
-        Ok(Some(u)) => u.name,
-        _ => "Unknown user".to_string(),
+fn caller() -> &'static OsStr {
+    CALLER.get_or_init(|| match crate::user::user_name(Uid::current()) {
+        Ok(Some(name)) => name,
+        _ => OsString::from("Unknown user"),
     })
 }
 
@@ -106,7 +106,7 @@ fn write_syslog(priority: i32, message: &str) {
     // The message is passed as an argument to the constant "%s" format
     // string, so user-controlled content (usernames, command names) is
     // never interpreted as a format string and needs no escaping.
-    let full = format!("{}: {}", escape(OsStr::new(caller())), message);
+    let full = format!("{}: {}", escape(caller()), message);
     let Ok(c_msg) = CString::new(full) else {
         return;
     };
@@ -267,9 +267,9 @@ mod tests {
         if std::env::var_os(CALLER_CHILD_ENV).is_none() {
             return;
         }
-        let name_of = |uid: Uid| match User::from_uid(uid) {
-            Ok(Some(u)) => u.name,
-            _ => "Unknown user".to_string(),
+        let name_of = |uid: Uid| match crate::user::user_name(uid) {
+            Ok(Some(name)) => name,
+            _ => OsString::from("Unknown user"),
         };
         let caller_uid = Uid::from_raw(65534);
         let expected = name_of(caller_uid);

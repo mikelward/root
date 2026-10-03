@@ -142,7 +142,7 @@ fn ensure_permitted() {
         match user::get_group_name(ROOT_GID) {
             Some(name) => error!(
                 "You must be in the {} group to run root",
-                logging::escape(OsStr::new(&name))
+                logging::escape(&name)
             ),
             None => error!("You must be in group {ROOT_GID} to run root"),
         }

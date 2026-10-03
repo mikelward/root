@@ -1,14 +1,163 @@
-use std::ffi::{CString, OsStr};
+use std::ffi::{CString, OsString};
+use std::os::unix::ffi::OsStrExt;
 
 #[cfg(not(target_vendor = "apple"))]
 use nix::unistd::{getgroups, initgroups};
-use nix::unistd::{getgid, setgid, setuid, Gid, Group, Uid, User};
+use nix::unistd::{getgid, setgid, setuid, Gid, Uid, User};
 
 #[cfg(target_vendor = "apple")]
 use self::libc_groups::{getgroups, initgroups};
+pub use self::names::user_name;
+use self::names::group_name;
 use crate::exit_code;
 use crate::logging;
 use crate::{debug, error};
+
+/// User and group names as the system stores them.
+///
+/// `nix` builds `User::name` and `Group::name` with `to_string_lossy`, which
+/// turns bytes that are not valid UTF-8 into U+FFFD, so the audit log could
+/// not tell such names apart and `initgroups` could be handed a name that
+/// is not the user's. These call `getpwuid_r` and `getgrgid_r` directly and
+/// keep the raw bytes.
+#[allow(unsafe_code)] // libc getpwuid_r/getgrgid_r FFI — buffer owned here, result checked
+mod names {
+    use std::ffi::{CStr, OsStr, OsString};
+    use std::os::unix::ffi::OsStrExt;
+
+    use nix::errno::Errno;
+    use nix::unistd::{Gid, Uid};
+
+    /// The largest buffer to offer before giving up; real entries are tiny.
+    const MAX_BUFFER: usize = 1 << 20;
+
+    /// The name of the user with this uid, or `None` if there is no such user.
+    pub fn user_name(uid: Uid) -> nix::Result<Option<OsString>> {
+        // SAFETY: an all-zero passwd is valid: null pointers and zero ids.
+        let entry: libc::passwd = unsafe { std::mem::zeroed() };
+        lookup(
+            entry,
+            // SAFETY: lookup passes a live entry, a buffer of `len` bytes and
+            // a result slot, which is all getpwuid_r writes to.
+            |entry, buf, len, found| unsafe {
+                libc::getpwuid_r(uid.as_raw(), entry, buf, len, found)
+            },
+            |entry| entry.pw_name,
+        )
+    }
+
+    /// The name of the group with this gid, or `None` if there is no such group.
+    pub fn group_name(gid: Gid) -> nix::Result<Option<OsString>> {
+        // SAFETY: an all-zero group is valid: null pointers and a zero id.
+        let entry: libc::group = unsafe { std::mem::zeroed() };
+        lookup(
+            entry,
+            // SAFETY: as in user_name, for getgrgid_r.
+            |entry, buf, len, found| unsafe {
+                libc::getgrgid_r(gid.as_raw(), entry, buf, len, found)
+            },
+            |entry| entry.gr_name,
+        )
+    }
+
+    /// Run a `get*_r` lookup, doubling its buffer while it reports `ERANGE`,
+    /// and copy out the name it found.
+    fn lookup<E>(
+        mut entry: E,
+        mut call: impl FnMut(*mut E, *mut libc::c_char, usize, *mut *mut E) -> libc::c_int,
+        name: impl Fn(&E) -> *const libc::c_char,
+    ) -> nix::Result<Option<OsString>> {
+        let mut size = 1024;
+        loop {
+            let mut buf: Vec<libc::c_char> = vec![0; size];
+            let mut found: *mut E = std::ptr::null_mut();
+            match call(&mut entry, buf.as_mut_ptr(), buf.len(), &mut found) {
+                0 if found.is_null() => return Ok(None),
+                0 => {
+                    let ptr = name(&entry);
+                    if ptr.is_null() {
+                        return Ok(Some(OsString::new()));
+                    }
+                    // SAFETY: on success the name is a NUL-terminated string
+                    // in `buf`, which is still alive here.
+                    let bytes = unsafe { CStr::from_ptr(ptr) }.to_bytes();
+                    return Ok(Some(OsStr::from_bytes(bytes).to_owned()));
+                }
+                libc::ERANGE if size < MAX_BUFFER => size *= 2,
+                errno => return Err(Errno::from_raw(errno)),
+            }
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        fn zeroed_passwd() -> libc::passwd {
+            // SAFETY: as in user_name.
+            unsafe { std::mem::zeroed() }
+        }
+
+        fn pw_name(entry: &libc::passwd) -> *const libc::c_char {
+            entry.pw_name
+        }
+
+        #[test]
+        fn lookup_keeps_raw_bytes_and_grows_its_buffer() {
+            // "jos" and 0xe9, Latin-1 for "josé": not valid UTF-8, so nix
+            // would have handed back "jos\u{fffd}".
+            let stored = b"jos\xe9\0";
+            let mut calls = 0;
+            let found = lookup(
+                zeroed_passwd(),
+                |entry, buf, len, found| {
+                    calls += 1;
+                    if len < 4096 {
+                        return libc::ERANGE;
+                    }
+                    // SAFETY: lookup's buffer holds `len` bytes, far more
+                    // than `stored`, and `entry` and `found` are live.
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(stored.as_ptr().cast(), buf, stored.len());
+                        (*entry).pw_name = buf;
+                        *found = entry;
+                    }
+                    0
+                },
+                pw_name,
+            );
+            assert_eq!(found, Ok(Some(OsStr::from_bytes(b"jos\xe9").to_owned())));
+            assert_eq!(calls, 3, "expected tries at 1024, 2048 and 4096 bytes");
+        }
+
+        #[test]
+        fn lookup_reports_absence_and_errors() {
+            assert_eq!(lookup(zeroed_passwd(), |_, _, _, _| 0, pw_name), Ok(None));
+            assert_eq!(
+                lookup(zeroed_passwd(), |_, _, _, _| libc::EIO, pw_name),
+                Err(Errno::EIO)
+            );
+            // A lookup that never fits gives up at the cap.
+            assert_eq!(
+                lookup(zeroed_passwd(), |_, _, _, _| libc::ERANGE, pw_name),
+                Err(Errno::ERANGE)
+            );
+        }
+
+        #[test]
+        fn real_lookups_agree_with_nix_on_valid_names() {
+            let uid = Uid::current();
+            let ours = user_name(uid).unwrap().map(|n| n.to_string_lossy().into_owned());
+            let theirs = nix::unistd::User::from_uid(uid).unwrap().map(|u| u.name);
+            assert_eq!(ours, theirs);
+
+            let gid = Gid::from_raw(0);
+            let ours = group_name(gid).unwrap().map(|n| n.to_string_lossy().into_owned());
+            let theirs = nix::unistd::Group::from_gid(gid).unwrap().map(|g| g.name);
+            assert_eq!(ours, theirs);
+        }
+    }
+}
 
 /// `getgroups` and `initgroups` straight from libc, with `nix`'s signatures.
 ///
@@ -62,11 +211,9 @@ mod libc_groups {
     }
 }
 
-pub fn get_group_name(gid: u32) -> Option<String> {
-    match Group::from_gid(Gid::from_raw(gid)) {
-        Ok(Some(g)) => Some(g.name),
-        _ => None,
-    }
+/// The group's name, raw, if it can be looked up. For messages only.
+pub fn get_group_name(gid: u32) -> Option<OsString> {
+    group_name(Gid::from_raw(gid)).ok().flatten()
 }
 
 pub fn in_group(target_gid: u32) -> bool {
@@ -110,7 +257,20 @@ pub fn setup_groups(uid: u32) {
         std::process::exit(exit_code::SYSTEM_ERROR);
     }
 
-    let cname = match CString::new(user.name.clone()) {
+    // The raw name, not nix's lossily converted `user.name`, so initgroups
+    // looks up exactly this user.
+    let name = match user_name(user.uid) {
+        Ok(Some(name)) => name,
+        Ok(None) => {
+            error!("Cannot get passwd info for uid {uid}");
+            std::process::exit(exit_code::SYSTEM_ERROR);
+        }
+        Err(e) => {
+            error!("Cannot get passwd info for uid {uid}: {e}");
+            std::process::exit(exit_code::SYSTEM_ERROR);
+        }
+    };
+    let cname = match CString::new(name.as_bytes()) {
         Ok(c) => c,
         Err(_) => {
             error!("Username for uid {uid} contains NUL");
@@ -119,11 +279,7 @@ pub fn setup_groups(uid: u32) {
     };
 
     if let Err(e) = initgroups(&cname, user.gid) {
-        error!(
-            "Cannot initgroups for {}: {}",
-            logging::escape(OsStr::new(&user.name)),
-            e
-        );
+        error!("Cannot initgroups for {}: {}", logging::escape(&name), e);
         std::process::exit(exit_code::SYSTEM_ERROR);
     }
 }
