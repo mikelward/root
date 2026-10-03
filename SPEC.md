@@ -197,6 +197,12 @@ signatures. Argument parsing is hand-rolled to support POSIX `+` semantics
   to accommodate systems where group 0 is named `wheel` (BSD, macOS):
   `make install INSTALL_GROUP=wheel`.
 
+- CI runs the test suites on Linux only. FreeBSD and macOS are covered by
+  cross-compiling on Linux: `cargo check` against FreeBSD, and for macOS a
+  Zig-linked build of both the Rust binary (with its test binaries, via
+  `cargo-zigbuild`) and the C fallback. That proves the code builds and links
+  there, but no test ever runs on either platform.
+
 - The compiled binary has no Rust runtime dependency, so the toolchain is
   only needed at build time. For machines without a Rust toolchain, build once
   and copy the binary, or build the C fallback under `legacy/` (see
