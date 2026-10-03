@@ -28,15 +28,6 @@ the alternative was, and why it is reversible.
 Found in a bug and security sweep and left out of that change because each
 needs a decision or a test harness the suites don't have yet.
 
-- [ ] **Log lines written after `setuid(0)` name `root`, not the caller.**
-      Both builds look the username up from `getuid()` on every message,
-      so a `Cannot exec` failure is attributed to root, contrary to the
-      spec's "the calling user's username is included". Capture the name
-      once at startup. In the C build that also stops `error()`'s
-      `getpwuid()` from overwriting the static `passwd` that
-      `setup_groups()` still reads `pw_name` from on its `initgroups`
-      failure path. Testing it needs a setuid copy run by a non-root
-      caller, plus a way to read the syslog record.
 - [ ] **The audit record passes control characters through and drops
       invalid UTF-8.** A command path can carry newlines or terminal
       escapes into syslog, and the Rust build logs non-UTF-8 bytes as

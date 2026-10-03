@@ -15,6 +15,7 @@
 
 int loglevel = LOG_ERR;           /* only print ERROR, CRIT, ... */
 static const char *g_progname;    /* XXX? maybe share this with root.o */
+static char *g_username;          /* the caller's name, captured by initlog */
 
 void setloglevel(int level)
 {
@@ -28,6 +29,28 @@ void initlog(const char *name)
     if (g_progname == NULL) {
         fprintf(stderr, "root: Cannot allocate memory for program name\n");
     }
+
+    /*
+     * Capture the caller's name now, while the real uid is still theirs, so
+     * messages logged after setuid(0) still name them. Copy it, because the
+     * next getpwuid() overwrites the buffer it returns.
+     */
+    g_username = strdup(get_username(getuid()));
+    if (g_username == NULL) {
+        fprintf(stderr, "root: Cannot allocate memory for user name\n");
+    }
+}
+
+/*
+ * The calling user's name, as captured by initlog. Falls back to looking it
+ * up afresh if initlog has not run or could not copy it.
+ */
+const char *log_username(void)
+{
+    if (g_username != NULL) {
+        return g_username;
+    }
+    return get_username(getuid());
 }
 
 /*
@@ -60,10 +83,8 @@ void writelog(int priority, const char *format, va_list ap)
 {
     char *logformat = NULL;
     char *escapedusername = NULL;
-    uid_t ruid;
 
-    ruid = getuid();
-    escapedusername = escape_percents(get_username(ruid));
+    escapedusername = escape_percents(log_username());
     if (escapedusername == NULL) {
         vsyslog(priority, format, ap);
         return;
