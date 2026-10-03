@@ -129,6 +129,22 @@ void test_no_command(void)
     assert(rest_count(argv, 2, rest) == 0);
 }
 
+void test_empty_argv(void)
+{
+    printf("Running %s\n", __func__);
+    /*
+     * argc == 0: argv holds only its terminating NULL, and on a real exec
+     * the environment follows it, so skipping argv[0] unconditionally would
+     * hand back an environment string as the command.
+     */
+    const char *const argv[] = {NULL, "PATH=/tmp", NULL};
+    struct options opts;
+    const char *const *rest;
+    assert(parse_args(0, argv, &opts, &rest) == 0);
+    assert(rest == argv);
+    assert(rest[0] == NULL);
+}
+
 void test_rejects_abbreviated_long_options(void)
 {
     printf("Running %s\n", __func__);
@@ -155,6 +171,7 @@ int main(int argc, const char *argv[])
     test_unknown_long_option();
     test_unknown_short_option();
     test_no_command();
+    test_empty_argv();
     test_rejects_abbreviated_long_options();
 
     return 0;

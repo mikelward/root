@@ -8,7 +8,12 @@ int parse_args(int argc, const char *const *argv,
     opts->set_home = 1;
     opts->debug = 0;
 
-    int i = 1; /* skip the program name */
+    /*
+     * Skip the program name, if there is one. A caller can exec us with an
+     * empty argv (argc == 0), and then argv + 1 points past argv's
+     * terminating NULL into the environment.
+     */
+    int i = argc > 0 ? 1 : 0;
     while (i < argc) {
         const char *arg = argv[i];
 

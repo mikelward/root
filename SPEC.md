@@ -34,6 +34,9 @@ Option parsing uses POSIX `+` prefix to stop at the first non-option argument
 
 2. **Parse arguments** - Process `-H`/`--nohome`/`--home` flags via
    `getopt_long()`. The remaining arguments are the command and its arguments.
+   An empty `argv` (`argc == 0`, which `execve()` permits on some kernels) has
+   no program name to skip and is treated as no command, never as a reason to
+   read past `argv`'s terminating `NULL` into the environment.
 
 3. **Check permissions** - Verify the calling user is a member of group 0 (see
    [Permission Model](#permission-model)). This happens *before* command

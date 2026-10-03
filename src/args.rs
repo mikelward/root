@@ -30,7 +30,9 @@ pub enum ParseError {
 /// command names and arguments pass through unchanged.
 pub fn parse(args: &[OsString]) -> Result<(Options, Vec<OsString>), ParseError> {
     let mut opts = Options::default();
-    let mut i = 1; // skip program name
+    // Skip the program name, if there is one: a caller can exec us with an
+    // empty argv (argc == 0), and slicing past its end would panic.
+    let mut i = args.len().min(1);
 
     while i < args.len() {
         let a = &args[i];
@@ -159,6 +161,15 @@ mod tests {
     #[test]
     fn no_command() {
         let (_opts, rest) = parse(&argv(&["-d"])).unwrap();
+        assert!(rest.is_empty());
+    }
+
+    #[test]
+    fn empty_argv_means_no_command() {
+        // execve() with an empty argv (argc == 0) leaves no program name to
+        // skip.
+        let (opts, rest) = parse(&[]).unwrap();
+        assert_eq!(opts, Options::default());
         assert!(rest.is_empty());
     }
 
