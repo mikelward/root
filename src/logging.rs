@@ -11,6 +11,7 @@ const FMT_STR: &[u8] = b"%s\0";
 
 static LOG_LEVEL: AtomicI32 = AtomicI32::new(LOG_ERR);
 static PROGNAME: OnceLock<&'static CStr> = OnceLock::new();
+static CALLER: OnceLock<String> = OnceLock::new();
 
 /// The ident most recently handed to `openlog()`, so a test can check that
 /// syslog always holds the name `PROGNAME` keeps alive.
@@ -36,6 +37,8 @@ pub fn init(progname: &'static CStr) {
             libc::LOG_AUTHPRIV,
         );
     }
+    // Capture the caller's name now, while the real uid is still theirs.
+    caller();
 }
 
 pub fn set_level(level: i32) {
@@ -46,11 +49,15 @@ pub fn level() -> i32 {
     LOG_LEVEL.load(Ordering::Relaxed)
 }
 
-fn username() -> String {
-    match User::from_uid(Uid::current()) {
+/// The calling user's name, looked up once.
+///
+/// `init` captures it before anything else runs, so lines logged after
+/// `setuid(0)` still name the caller rather than root.
+fn caller() -> &'static str {
+    CALLER.get_or_init(|| match User::from_uid(Uid::current()) {
         Ok(Some(u)) => u.name,
         _ => "Unknown user".to_string(),
-    }
+    })
 }
 
 #[allow(unsafe_code)] // libc::syslog FFI — format is hardcoded "%s\0", arg is CString
@@ -58,7 +65,7 @@ fn write_syslog(priority: i32, message: &str) {
     // The message is passed as an argument to the constant "%s" format
     // string, so user-controlled content (usernames, command names) is
     // never interpreted as a format string and needs no escaping.
-    let full = format!("{}: {}", username(), message);
+    let full = format!("{}: {}", caller(), message);
     let Ok(c_msg) = CString::new(full) else {
         return;
     };
@@ -141,5 +148,62 @@ mod tests {
             stored.as_ptr()
         );
         log(LOG_DEBUG, "logging test after repeated init");
+    }
+
+    /// Set in the child process `caller_survives_setuid` starts.
+    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+    const CALLER_CHILD_ENV: &str = "ROOT_TEST_CALLER_CHILD";
+
+    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+    #[test]
+    fn caller_survives_setuid() {
+        // Changing uids is irreversible and needs root, so the work happens
+        // in a child process running only the test below. CI reruns this
+        // binary under sudo so it does not skip there.
+        if !Uid::effective().is_root() {
+            eprintln!("skipping: needs root to change uids in a child");
+            return;
+        }
+        let out = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "logging::tests::caller_survives_setuid_child"])
+            .args(["--test-threads=1", "--nocapture"])
+            .env(CALLER_CHILD_ENV, "1")
+            .output()
+            .expect("failed to run the child test");
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(
+            out.status.success(),
+            "child failed:\n{stdout}\n{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert!(stdout.contains("1 passed"), "child ran no test:\n{stdout}");
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+    #[test]
+    fn caller_survives_setuid_child() {
+        use nix::unistd::{setresuid, setuid};
+
+        if std::env::var_os(CALLER_CHILD_ENV).is_none() {
+            return;
+        }
+        let name_of = |uid: Uid| match User::from_uid(uid) {
+            Ok(Some(u)) => u.name,
+            _ => "Unknown user".to_string(),
+        };
+        let caller_uid = Uid::from_raw(65534);
+        let expected = name_of(caller_uid);
+        assert_ne!(expected, name_of(Uid::from_raw(0)));
+
+        // Start where the installed setuid binary does: the real uid is the
+        // caller's and the effective uid is root. Capturing the effective
+        // uid would name root here.
+        setresuid(caller_uid, Uid::from_raw(0), Uid::from_raw(0))
+            .expect("setresuid failed");
+        init(c"roottest");
+        // Then become root the way become_root() does. Looking the name up
+        // per message would name root from here on.
+        setuid(Uid::from_raw(0)).expect("setuid(0) failed");
+        assert_eq!(caller(), expected);
     }
 }

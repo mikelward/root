@@ -144,7 +144,9 @@ All log messages are sent to syslog with facility `LOG_AUTHPRIV`:
 - **`LOG_ERR`**: Errors (permission denied, command not found, etc.).
 - **`LOG_DEBUG`**: Debug information (PATH searches, command resolution).
 
-The calling user's username is included in syslog messages. Messages are
+The calling user's username is included in syslog messages. It is looked up
+once, when logging starts, so messages logged after becoming root (an
+`execv()` failure, say) still name the caller rather than `root`. Messages are
 passed to `syslog()` as an argument to a constant `"%s"` format string, so
 user-controlled content (usernames, command names) is never interpreted as a
 format string and needs no escaping.

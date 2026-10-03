@@ -34,6 +34,12 @@ void print(const char *format, ...);
 
 const char *get_username(uid_t uid);
 
+/*
+ * The calling user's name for log messages: captured by initlog, so messages
+ * logged after setuid(0) still name the caller rather than root.
+ */
+const char *log_username(void);
+
 char *escape_percents(const char *string);
 
 #endif

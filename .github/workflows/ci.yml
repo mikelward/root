@@ -85,6 +85,16 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/pull/{0}/merge', inputs.pr) || github.sha }}
       - run: make test
 
+      # A few unit tests change uids, which needs root, and skip without it.
+      # The runner has passwordless sudo, so rerun the unit-test binary as
+      # root rather than leave them untested here. Only the binary runs as
+      # root; cargo builds as the runner user above.
+      - name: Run the unit tests as root
+        run: |
+          bin="$(cargo test --release --no-run --message-format=json | jq -r 'select(.reason == "compiler-artifact" and .profile.test and .target.kind == ["bin"]) | .executable')"
+          test -n "$bin"
+          sudo "$bin"
+
   # The setuid fallback for machines without a Rust toolchain. Untested
   # changes here are a security change (AGENTS.md), so this suite is not
   # optional just because the Rust build is primary.
@@ -100,6 +110,11 @@ jobs:
           # Same reasoning as the test job above.
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/pull/{0}/merge', inputs.pr) || github.sha }}
       - run: make -C legacy test
+
+      # Same reasoning as the test job's root rerun: loggingtest changes uids
+      # in a child process, which needs root.
+      - name: Run the logging tests as root
+        run: sudo ./legacy/loggingtest
 
   # FreeBSD and macOS are platforms SPEC.md supports but no runner here is, so
   # this checks them by cross-compiling on Ubuntu, the way mikelward/mesh does,
