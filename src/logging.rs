@@ -1,4 +1,4 @@
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::io::Write;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::OnceLock;
@@ -10,19 +10,32 @@ pub use libc::{LOG_DEBUG, LOG_ERR, LOG_INFO};
 const FMT_STR: &[u8] = b"%s\0";
 
 static LOG_LEVEL: AtomicI32 = AtomicI32::new(LOG_ERR);
-static PROGNAME: OnceLock<CString> = OnceLock::new();
+static PROGNAME: OnceLock<&'static CStr> = OnceLock::new();
 
-#[allow(unsafe_code)] // libc::openlog FFI — args are statically-known-safe
-pub fn init(progname: &str) {
-    let cprog = CString::new(progname).expect("program name must not contain NUL");
+/// The ident most recently handed to `openlog()`, so a test can check that
+/// syslog always holds the name `PROGNAME` keeps alive.
+#[cfg(test)]
+static OPENLOG_IDENT: std::sync::atomic::AtomicPtr<libc::c_char> =
+    std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
+
+/// Open syslog under `progname`.
+///
+/// `progname` is `'static` because `openlog()` may keep the pointer rather
+/// than copy the string (glibc does) and read it on every later `syslog()`,
+/// so it must never be freed. A repeat call keeps the first name, so syslog
+/// and stderr always agree.
+#[allow(unsafe_code)] // libc::openlog FFI — ident is 'static, flags are constants
+pub fn init(progname: &'static CStr) {
+    let ident = *PROGNAME.get_or_init(|| progname);
+    #[cfg(test)]
+    OPENLOG_IDENT.store(ident.as_ptr().cast_mut(), Ordering::Relaxed);
     unsafe {
         libc::openlog(
-            cprog.as_ptr(),
+            ident.as_ptr(),
             libc::LOG_CONS | libc::LOG_PID,
             libc::LOG_AUTHPRIV,
         );
     }
-    let _ = PROGNAME.set(cprog);
 }
 
 pub fn set_level(level: i32) {
@@ -112,5 +125,21 @@ mod tests {
         set_level(LOG_DEBUG);
         assert_eq!(level(), LOG_DEBUG);
         set_level(original);
+    }
+
+    #[test]
+    fn repeat_init_keeps_syslog_on_the_stored_name() {
+        // openlog() may keep the ident pointer, so after any number of init
+        // calls it must hold the name PROGNAME keeps alive, never one a
+        // later call passed in and the caller may free.
+        init(c"roottest");
+        init(c"roottest-again");
+        let stored = *PROGNAME.get().unwrap();
+        assert_eq!(stored, c"roottest");
+        assert_eq!(
+            OPENLOG_IDENT.load(Ordering::Relaxed).cast_const(),
+            stored.as_ptr()
+        );
+        log(LOG_DEBUG, "logging test after repeated init");
     }
 }
