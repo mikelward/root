@@ -120,7 +120,12 @@ If the check fails:
 - Checked by examining the calling process's real GID and supplementary groups
   via `getgid()` and `getgroups()`.
 - No configuration files, no per-command restrictions, no passwords.
-- To grant access: `usermod -a -G 0 <user>`
+- To grant access: `usermod -a -G 0 <user>`, or on macOS
+  `dseditgroup -o edit -a <user> -t user wheel`.
+- On macOS the process carries at most 16 supplementary groups
+  (`NGROUPS_MAX`); further membership is resolved through the directory
+  service, which `getgroups()` does not see. A user whose group 0 membership
+  falls outside those 16 is refused, never wrongly admitted.
 
 ## Environment Handling
 
@@ -180,9 +185,11 @@ and runs on:
 - **macOS** (Darwin)
 
 The Rust implementation depends on `libc` (for `openlog`/`syslog`) and `nix`
-(for `setuid`, `setgid`, `initgroups`, `access`, `execv`, and the
-`User`/`Group` lookups). Argument parsing is hand-rolled to support POSIX `+`
-semantics (options stop at the first non-option).
+(for `setuid`, `setgid`, `getgroups`, `initgroups`, `access`, `execv`, and the
+`User`/`Group` lookups). `nix` omits `getgroups` and `initgroups` on Apple
+targets, so on macOS `src/user.rs` calls libc's directly, with `nix`'s
+signatures. Argument parsing is hand-rolled to support POSIX `+` semantics
+(options stop at the first non-option).
 
 ### Portability notes
 
@@ -267,8 +274,9 @@ alias root='root '   # trailing space enables alias expansion
    user's identity.
 
 5. **Minimal attack surface** - Small Rust codebase. `unsafe` is confined to
-   the syslog FFI calls (`openlog`/`syslog`); all other system calls go
-   through safe `nix` wrappers.
+   the syslog FFI calls (`openlog`/`syslog`) and, on Apple targets only, the
+   `getgroups`/`initgroups` calls `nix` does not wrap there; all other system
+   calls go through safe `nix` wrappers.
 
 6. **Portability** - Uses POSIX APIs via `nix` and avoids OS-specific
    extensions so the code builds and runs on Linux, BSD, and macOS.

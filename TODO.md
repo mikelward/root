@@ -28,13 +28,6 @@ the alternative was, and why it is reversible.
 Found in a bug and security sweep and left out of that change because each
 needs a decision or a test harness the suites don't have yet.
 
-- [ ] **The Rust build fails on macOS**, though `SPEC.md` lists it as
-      supported: `nix` 0.29 omits `getgroups` and `initgroups` on Apple
-      targets (`cargo check --target x86_64-apple-darwin` fails in
-      `src/user.rs`). A fix needs either libc FFI, which widens the
-      unsafe code beyond the syslog calls, or a different group check on
-      Apple, where membership really lives in `opendirectoryd`. Otherwise
-      drop macOS from the spec.
 - [ ] **Log lines written after `setuid(0)` name `root`, not the caller.**
       Both builds look the username up from `getuid()` on every message,
       so a `Cannot exec` failure is attributed to root, contrary to the

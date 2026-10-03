@@ -14,10 +14,28 @@ fn running_as_root() -> bool {
 }
 
 fn in_group_zero() -> bool {
-    nix::unistd::getgid().as_raw() == 0
-        || nix::unistd::getgroups()
-            .map(|gs| gs.iter().any(|g| g.as_raw() == 0))
-            .unwrap_or(false)
+    nix::unistd::getgid().as_raw() == 0 || supplementary_groups().contains(&0)
+}
+
+#[cfg(not(target_vendor = "apple"))]
+fn supplementary_groups() -> Vec<u32> {
+    nix::unistd::getgroups()
+        .expect("getgroups failed")
+        .iter()
+        .map(|g| g.as_raw())
+        .collect()
+}
+
+/// `nix` has no `getgroups` on Apple targets, and this file allows no
+/// unsafe code, so ask `id` instead.
+#[cfg(target_vendor = "apple")]
+fn supplementary_groups() -> Vec<u32> {
+    let out = Command::new("id").arg("-G").output().expect("failed to run id");
+    assert!(out.status.success(), "id -G failed: {out:?}");
+    String::from_utf8_lossy(&out.stdout)
+        .split_whitespace()
+        .map(|g| g.parse().expect("id -G printed a non-numeric group"))
+        .collect()
 }
 
 /// The permission check runs before command resolution, so callers outside

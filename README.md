@@ -8,7 +8,8 @@ complex configuration and doesn't mess with your environment variables.
 
 Installation
 ------------
-To install, just run `make install` as root.
+To install, just run `make install` as root. On BSD and macOS, where
+group 0 is called `wheel`, run `make install INSTALL_GROUP=wheel`.
 
 You will require GNU make and a stable Rust toolchain (cargo + rustc).
 
@@ -35,7 +36,8 @@ Any user in group 0 (usually called `wheel` or `root`) is allowed
 to use `root`.
 
 Use your system's tools such as `gpasswd` and `usermod` to make
-any necessary changes, e.g. `usermod -a -G 0 USERNAME`.
+any necessary changes, e.g. `usermod -a -G 0 USERNAME`. On macOS, use
+`dseditgroup -o edit -a USERNAME -t user wheel`.
 
 Usage
 -----

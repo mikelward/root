@@ -71,6 +71,12 @@ run:
 .B usermod -a -G 0
 .I user
 .RE
+.P
+On macOS, run
+.B "dseditgroup -o edit -a"
+.I user
+.B "-t user wheel"
+instead.
 .SH "RELATIVE PATHS"
 .B root
 will not allow running any command that was found via "" or "." in
