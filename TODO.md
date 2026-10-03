@@ -34,9 +34,6 @@ needs a decision or a test harness the suites don't have yet.
       U+FFFD, so two different paths can log the same. The C build
       already flags this (`XXX how to escape control characters`).
       Escaping changes the audit format, so it is the maintainer's call.
-- [ ] **The C build exits 127, not 125, if `realpath()` fails on a
-      relative PATH match**; the Rust build falls back to printing the
-      unresolved path and exits 125 as specified.
 - [ ] **Consider finding root-only executables in PATH.** The lookup
       tests each candidate with `access(X_OK)`, which uses the caller's
       real UID, so a root-only file (mode 0700) is skipped:

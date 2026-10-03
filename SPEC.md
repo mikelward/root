@@ -101,7 +101,10 @@ resulting path is absolute (starts with `/`). This prevents attacks where:
 If the check fails:
 
 - The attempt is logged as an error.
-- The user is shown what command *would* have been run.
+- The user is shown what command *would* have been run: its `realpath()`, or
+  the path as found if that cannot be resolved (for example, when the current
+  directory's absolute path exceeds `PATH_MAX`). Either way the exit code is
+  125.
 - Unsafe PATH entries are listed.
 - The program exits with code 125.
 

@@ -262,8 +262,11 @@ void find_and_verify_command(const char *command, char **path_commandp)
          * this should only go to the log file
          */
         error("Attempt to run relative PATH command %s", path_command);
-        char *absolute_command;
-        get_absolute_command(path_command, &absolute_command);
+        /*
+         * Only for the message: if realpath() fails here, still report the
+         * relative match and exit 125 rather than 127.
+         */
+        char *absolute_command = resolve_for_message(path_command);
         print("You tried to run %s, but this would run %s\n",
               command,
               absolute_command);
