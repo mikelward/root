@@ -1,6 +1,6 @@
 #![deny(unsafe_code)]
 
-use std::ffi::{CString, OsStr, OsString};
+use std::ffi::{CStr, CString, OsStr, OsString};
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 
@@ -12,7 +12,7 @@ pub mod logging;
 mod path;
 mod user;
 
-const PROGNAME: &str = "root";
+const PROGNAME: &CStr = c"root";
 const ROOT_UID: u32 = 0;
 const ROOT_GID: u32 = 0;
 
