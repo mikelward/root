@@ -22,7 +22,8 @@ struct options {
  *
  * On success, *opts is filled in and *argsp is set to the command-and-arguments
  * slice (argv beginning at the first non-option), then 0 is returned. Because
- * argv is NULL-terminated, (*argsp)[0] is NULL when no command was given.
+ * argv is NULL-terminated, (*argsp)[0] is NULL when no command was given,
+ * including when argc is 0 and argv holds no program name.
  *
  * On an unknown or abbreviated option, -1 is returned and *argsp is left
  * unchanged.
