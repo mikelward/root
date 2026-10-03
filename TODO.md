@@ -23,6 +23,51 @@ the alternative was, and why it is reversible.
       fork head also fails the `codex` status for a separate, deliberate
       reason.
 
+## Audit findings not yet fixed
+
+Found in a bug and security sweep and left out of that change because each
+needs a decision or a test harness the suites don't have yet.
+
+- [ ] **The Rust build fails on macOS**, though `SPEC.md` lists it as
+      supported: `nix` 0.29 omits `getgroups` and `initgroups` on Apple
+      targets (`cargo check --target x86_64-apple-darwin` fails in
+      `src/user.rs`). A fix needs either libc FFI, which widens the
+      unsafe code beyond the syslog calls, or a different group check on
+      Apple, where membership really lives in `opendirectoryd`. Otherwise
+      drop macOS from the spec.
+- [ ] **Log lines written after `setuid(0)` name `root`, not the caller.**
+      Both builds look the username up from `getuid()` on every message,
+      so a `Cannot exec` failure is attributed to root, contrary to the
+      spec's "the calling user's username is included". Capture the name
+      once at startup. In the C build that also stops `error()`'s
+      `getpwuid()` from overwriting the static `passwd` that
+      `setup_groups()` still reads `pw_name` from on its `initgroups`
+      failure path. Testing it needs a setuid copy run by a non-root
+      caller, plus a way to read the syslog record.
+- [ ] **The audit record passes control characters through and drops
+      invalid UTF-8.** A command path can carry newlines or terminal
+      escapes into syslog, and the Rust build logs non-UTF-8 bytes as
+      U+FFFD, so two different paths can log the same. The C build
+      already flags this (`XXX how to escape control characters`).
+      Escaping changes the audit format, so it is the maintainer's call.
+- [ ] **The C build exits 127, not 125, if `realpath()` fails on a
+      relative PATH match**; the Rust build falls back to printing the
+      unresolved path and exits 125 as specified.
+- [ ] **Consider finding root-only executables in PATH.** The lookup
+      tests each candidate with `access(X_OK)`, which uses the caller's
+      real UID, so a root-only file (mode 0700) is skipped:
+      `root myscript` reports it missing while `root /path/to/myscript`
+      runs it, and a later PATH entry can win over the one root's own
+      lookup would pick. Checking with effective IDs
+      (`faccessat(…, AT_EACCESS)`) would match what `execv()` as root can
+      run, and it runs only after the group check, so it reveals nothing
+      to unauthorized callers. Like `access()`, it still honors `noexec`
+      mounts. It changes how a setuid binary picks what it runs, and
+      `SPEC.md` names `access()`, so it needs the maintainer's call, the
+      same change in the C build, and a test that runs a setuid copy as a
+      non-root caller. Deferred by the maintainer: not worth the added
+      complexity for now, since the full path already works.
+
 ## Add the ruleset settings the Codex gate expects
 
 Three settings this repository's ruleset does not have yet, all explained in
