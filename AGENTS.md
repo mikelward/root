@@ -6,6 +6,9 @@ last_modified: 2026-10-17
 
 # Agents
 
+`CLAUDE.md` and `GEMINI.md` are symlinks to this file, so every agent reads the
+same conventions. Edit `AGENTS.md`.
+
 Keep this file as short as it can be and still work. Every session loads it
 whole, so each rule costs context on every turn: add one the first time
 something bites, say it once in the fewest words that carry the *why*, rewrite
@@ -107,8 +110,8 @@ before it steers the work. Bump `last_modified` whenever you edit this file.
   one. Say the follow-up needs a fresh sandbox or a synced checkout rather than
   branching off a `HEAD` whose commits just landed upstream.
 - **Branch naming.** Feature branches are prefixed with the agent's own short
-  name: `<agent>/<short-topic>` (`claude/...` for Claude Code, `codex/...` for
-  Codex, and so on). Branch off `origin/main`, one topic per branch; never
+  name: `<agent>/<short-topic>` (`claude/...` for Claude Code, `gemini/...` for
+  Gemini / Antigravity, `codex/...` for Codex, and so on). Branch off `origin/main`, one topic per branch; never
   commit to `main`. The placeholder `<agent>` stands in for whichever prefix
   you use — don't hard-code `claude/` unless you *are* Claude Code.
 - **Merge cue (`merged` / `I merged` / `landed` / merge webhook) runs hygiene
@@ -143,6 +146,11 @@ reply, no offer to correct it. It is not a finding.
   `git fetch --unshallow` first, then re-check — it exits 0 even when
   it deepened nothing, so if `--is-shallow-repository` is still `true`, say the
   history is truncated instead of quoting a count.
+- **No model identifier** — never name the coding agent's model or version
+  (`Opus 4.8`, `Sonnet`, `Gemini …`, `claude-*`, `gemini-*`) in a commit, PR,
+  comment, or pushed artifact; keep it to chat. Generic attribution
+  (`Co-Authored-By: Claude` / `Gemini`, `Claude-Session:`, "Generated with
+  Claude Code") is fine.
 
 ## Error handling
 
@@ -187,7 +195,9 @@ reply, no offer to correct it. It is not a finding.
   here, and it doesn't need repeating per branch.
 - **Watch your own PRs by subscription, plus one scheduled check.** Have a
   subscription — Claude Code makes one when you open a PR; where a client
-  doesn't, call `subscribe_pr_activity`. It delivers reviews, comments and CI
+  doesn't, call `subscribe_pr_activity` (exposed only in `claude-code-remote`).
+  The scheduled check is `send_later` in Claude Code, `schedule` with
+  `DurationSeconds` in Antigravity (cancel via `manage_task` `kill`). It delivers reviews, comments and CI
   failures. It cannot deliver CI *success*, a push, the merge, Codex's clean
   verdict (a reaction), or Codex never answering at all — so keep exactly one
   check armed for as long as the PR is open (each event and each check costs
@@ -239,8 +249,9 @@ reply, no offer to correct it. It is not a finding.
     if it doesn't merge cleanly with it (`git merge-tree --write-tree`, Git
     2.38 or later, exits 1). Any exit but 0 or 1 from either is a failure
     to report, not an answer. Your own rules decide the rebase from there.
-    Skip a PR with no session URL, and don't retry a failed send; its own
-    scheduled check is the fallback.
+    Skip a PR with no session URL, or when your client only has local
+    subagent messaging, and don't retry a failed send; its own scheduled
+    check is the fallback.
   - Merged or closed, take one last reply-and-resolve pass — a review can
     land after the merge. Nothing is holding the PR now, so on a merged one
     anything real goes to a follow-up PR, named on the thread, before you
@@ -284,6 +295,8 @@ reply, no offer to correct it. It is not a finding.
 
 ## Pull requests
 
+- Prefer the `mcp__github__*` tools where mounted (Claude Code requires them);
+  otherwise fall back to `gh`.
 - **Update the PR title and body with the push — body first, then push** — so
   they describe the full, latest state of the branch, not the scope it had
   when it was opened. Re-read the diff against `origin/main` and patch
@@ -330,9 +343,10 @@ reply, no offer to correct it. It is not a finding.
 - **Never leave a review comment thread silently dismissed.** Answer on the thread — a
   disagreement is an answer, so say why — then resolve it once the fix is on the
   head or the point is rebutted; anything still to do stays open; when you think a comment is a false positive, say
-  *why* on the thread. `resolve_review_thread` works — pass the `PRRT_*` thread
-  node ID from `pull_request_read` / `get_review_comments`
-  (`review_threads[].id`); a comment's `PRRC_*` ID fails. Push the fix first,
+  *why* on the thread. `resolve_review_thread` (or `gh api graphql`
+  `resolveReviewThread`) works — pass the `PRRT_*` thread node ID from
+  `pull_request_read` / `get_review_comments` (`review_threads[].id`); a
+  comment's `PRRC_*` ID fails. Push the fix first,
   then reply citing the new sha, then resolve.
 - **Deferring a real-but-out-of-scope finding.** Don't ask the maintainer to
   merge past it: note the follow-up in `TODO.md`, commit and push that first,
