@@ -1,7 +1,7 @@
 ---
 trigger: always_on
 alwaysApply: true
-last_modified: 2026-10-22
+last_modified: 2026-10-23
 ---
 
 # Agents
@@ -82,6 +82,12 @@ than append; delete one that has stopped biting.
   `--fixup` + autosquash, squash, reorder, split), folding fix-ups and review
   responses into the commit they belong to; `wip` / `address review` churn
   doesn't survive into `main`.
+- **Title commits like a changelog line** (maintainer, 2026-10-23): after any
+  prefix, an imperative verb, then the change as someone running `root` sees it,
+  plain English, sentence case, ≤ ~70 chars, e.g. `Fix …` for what was broken,
+  `Improve …` for what got better, `Add …` for what's new; an optional
+  parenthetical says how. Never the scenario or the mechanism (that's the body).
+  PR titles match.
 - **These rules assume an `origin` remote**; without one you can't fetch,
   branch, push or open a PR — say so and stop rather than improvising a local
   substitute. **Exception:** a sandbox with intentionally no remote Git (Codex
