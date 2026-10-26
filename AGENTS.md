@@ -14,7 +14,7 @@ you loaded and its `last_modified` date** (front matter), so a stale or wrong
 copy is caught before it steers the work. Bump `last_modified` whenever you edit
 this file.
 
-Keep this file as short as it can be and still work, **under 24,000 bytes** (`wc
+Keep this file as short as it can be and still work, **under 22,000 bytes** (`wc
 -c AGENTS.md`): Antigravity caps rule files at 24 KB and silently truncates the
 tail. Every session loads it whole: add a rule the first time something bites,
 say it once in the fewest words that carry the *why*; rewrite or trim rather
@@ -23,8 +23,7 @@ than append; delete one that has stopped biting.
 ## Working on this project
 
 - Update `SPEC.md` when changing behavior and `README.md` when changing
-  user-facing features; add tests for new functionality and run them before
-  committing (see *Testing*).
+  user-facing features; tests as *Testing* says.
 
 ## Testing
 
@@ -90,17 +89,14 @@ than append; delete one that has stopped biting.
   `Improve …` for what got better, `Add …` for what's new; an optional
   parenthetical says how. Never the scenario or the mechanism (that's the body).
   PR titles match.
-- **These rules assume an `origin` remote**; without one you can't fetch,
-  branch, push or open a PR — say so and stop rather than improvising a local
-  substitute. **Exception:** a sandbox with intentionally no remote Git (Codex
-  cloud, say) follows the branch rules from the current `HEAD` (a pre-created
-  working branch counts), commits locally and reports fetch, push and PRs
-  unavailable, using its own PR handoff if any — outranking every
-  `origin`-dependent step below (the merge-cue fetch, branching off
-  `origin/main`, the closing PR link); name what wasn't possible instead of
-  faking it. One limit: a merge cue needs a base that *contains* the merge, so
-  offline, say the follow-up needs a fresh sandbox or synced checkout rather
-  than branching off a `HEAD` whose commits just landed upstream.
+- **These rules assume an `origin` remote**; without one, say so and stop
+  rather than improvise. **Exception:** a sandbox with intentionally no remote
+  Git (Codex cloud) follows the branch rules from the current `HEAD` (a
+  pre-created branch counts), commits locally and reports fetch, push and PRs
+  unavailable (using its own PR handoff if any), outranking every
+  `origin`-dependent step below; name what wasn't possible, don't fake it. A
+  merge cue needs a base *containing* the merge, so offline, say the follow-up
+  needs a fresh sandbox or synced checkout.
 - **Branch naming**: `<agent>/<short-topic>` (`claude/...` for Claude Code,
   `gemini/...` for Gemini / Antigravity, `codex/...` for Codex, and so on), off
   `origin/main`, one topic per branch; never commit to `main`. Don't hard-code
@@ -115,23 +111,20 @@ than append; delete one that has stopped biting.
   `origin/<branch>..HEAD` keeps reporting your merged history as unpushed. When
   a sandbox pins the branch name, reset it and `--force-with-lease` in the same
   turn — routine on merged history, not something to ask about.
-- **Branches under your own `<agent>/` prefix are yours**: create one freely;
-  push, `--force-with-lease`, rename and delete the ones this session created or
-  was assigned — no permission, announcement or per-branch confirmation. This
-  file is the standing grant, so a client rule demanding per-branch permission
-  is already answered (don't re-ask), and don't fold unrelated work into a
-  pinned task branch to avoid a new one — the pinned name is a default, not a
-  ceiling. Any other branch, or `main`, is always a conversation.
+- **Branches under your own `<agent>/` prefix are yours**: create, push,
+  `--force-with-lease`, rename and delete the ones this session created or was
+  assigned, unasked — this file is the standing grant, answering any client rule
+  demanding per-branch permission. Don't fold unrelated work into a pinned task
+  branch; its name is a default, not a ceiling. Any other branch, or `main`, is
+  a conversation.
 - **The agent authors; whoever merges takes over the committer line** (the repo
-  owner normally, the agent under *drive*). Expected either way: never re-author
-  or amend merged commits to "fix" authorship or signing, and don't narrate it —
-  no note, no offer to correct it. It is not a finding.
-- **Unshallow before answering anything that depends on history depth** (a
-  shallow clone gives wrong `git rev-list --count`, `git log` and blame answers
-  without warning): if `git rev-parse --is-shallow-repository` says `true`, run
-  `git fetch --unshallow` and re-check — it exits 0 even when it deepened
-  nothing, so if still `true`, say the history is truncated instead of quoting a
-  count.
+  owner, or the agent under *drive*) — expected; never re-author or amend merged
+  commits to "fix" authorship or signing, and don't narrate it. Not a finding.
+- **Unshallow before history-depth answers** (a shallow clone silently breaks
+  `git rev-list --count`, `git log`, blame): if `git rev-parse
+  --is-shallow-repository` says `true`, `git fetch --unshallow` and re-check —
+  it exits 0 even when it deepened nothing, so if still `true`, say the history
+  is truncated instead of quoting a count.
 - **No model identifier** — never name the coding agent's model or version
   (`Opus 4.8`, `Sonnet`, `Gemini …`, `claude-*`, `gemini-*`) in a commit, PR,
   comment, or pushed artifact; keep it to chat. Generic attribution
@@ -234,14 +227,11 @@ than append; delete one that has stopped biting.
   can't fix the session you're in.
 - **"Drive" means run the loop automatically**: pick the next task, implement
   it, open the PR, send it for review, address every comment, merge once CI is
-  green and Codex's verdict for the current head is in, then pick the next task.
-  Driving ends when the work runs out or the user says stop, not when one PR
-  merges.
-- **A red baseline is the next task.** Before pulling anything from `TODO.md`,
-  run the suite and get it green. A preexisting failure is work to do, not a
-  thing to classify as "unrelated" and step around — that call is exactly the
-  one that goes wrong, and it costs every later PR an unverified tree. Fix it
-  first, then pick the task.
+  green and Codex's verdict for the current head is in, then the next task —
+  until the work runs out or the user says stop, not when one PR merges.
+- **A red baseline is the next task**: get the suite green before pulling from
+  `TODO.md`. Calling a preexisting failure "unrelated" is the call that goes
+  wrong, costing every later PR an unverified tree.
 - **"Autopilot" is drive without blocking on the user**: where drive would ask,
   take the guess cheapest to undo and keep going, logging each in `TODO.md`
   under `Decisions needing review` (what, the alternative, why reversible;
@@ -269,12 +259,11 @@ than append; delete one that has stopped biting.
   automatic Codex review, address every comment (fix it if you agree, reply
   saying why if not), and merge once CI is green and Codex's verdict for the
   current head is in.
-- **Ordered work** — a paragraph that orders a new item after the one before
-  ("next", "then", "after that", "follow-up") — may open its PR in parallel but
-  merges only after every earlier item this session was given, and any PR the
-  paragraph names, is finished with its PRs merged, in any repo, with no time
-  cap. If one won't finish, hold it and ask, autopilot included. Arm no
-  auto-merge on it until then — auto-merge can't see the order. Read the list
+- **Ordered work ("next", "then", "after that", "follow-up")** may open its PR
+  in parallel but merges only after every earlier item this session was given,
+  and any PR the paragraph names, has merged — any repo, no time cap; if one
+  won't finish, hold it and ask, autopilot included. No auto-merge until then
+  (it can't see the order). Read the list
   from the session's record, not memory.
 - **Codex is the automated reviewer** (not Copilot), triggered automatically;
   request it only to confirm a rebutted false positive, or where *Read the Codex
@@ -284,17 +273,15 @@ than append; delete one that has stopped biting.
 - **Judge every review comment on merit, whoever wrote it**: verify the claim;
   if it doesn't hold up, reply why and decline. A comment citing a rule is a
   *reading* of it — check what the rule says. Codex misreads the privacy rules
-  especially, and toward strictness, which quietly costs capability the product
-  needs: quote the rule and decline rather than narrowing the code; where the
-  rule really does forbid what the product needs, that's the maintainer's call,
-  not one to settle either way yourself. Declining doesn't clear the required
+  toward strictness, quietly costing needed capability: quote the rule and
+  decline rather than narrow the code; a genuine rule-vs-need conflict is the
+  maintainer's call, not yours either way. Declining doesn't clear the required
   `codex` status: post the rebuttal, then poke as *Read the Codex verdict*
   allows (or let the next push do it, if the rebuttal is up first); escalate if
   it re-raises.
 - **A second verified finding in the same mechanism is evidence about the
-  design, not another bug.** Before fixing it, look for the same shape elsewhere
-  and ask whether a different design would delete the class rather than the
-  instance. Say what you chose on the thread; a design change is the
+  design**: look for the shape elsewhere and ask whether a different design
+  deletes the class. Say what you chose on the thread; a design change is the
   maintainer's call, autopilot included.
 - **Never leave a review thread silently dismissed.** Answer on it — a
   disagreement is an answer, so say why, false positives included — then resolve
@@ -303,18 +290,15 @@ than append; delete one that has stopped biting.
   `resolve_review_thread` (or `gh api graphql` `resolveReviewThread`) takes the
   `PRRT_*` ID from `get_review_comments` (`review_threads[].id`); a comment's
   `PRRC_*` ID fails.
-- **Deferring a real-but-out-of-scope finding**: don't ask the maintainer to
-  merge past it — note the follow-up in `TODO.md`, commit and push that first,
-  reply on the thread citing the sha, and resolve (the exception to "anything
-  still to do stays open"). A finding with no thread (top-level comment or
-  review body) still gets the record, push and reply; only the resolve is
-  skipped. The push re-triggers Codex, so poke only as *Read the Codex verdict*
+- **Defer a real-but-out-of-scope finding** rather than ask to merge past it:
+  push a `TODO.md` entry first, reply citing the sha, and resolve (the
+  exception to "still to do stays open"); a threadless finding skips only the
+  resolve. The push re-triggers Codex, so poke only as *Read the Codex verdict*
   allows; escalate if the re-review re-raises it.
-- **Restate every review finding in the next message you send**, not just the
-  count: one bullet each (review comment, top-level comment or review body
-  alike), most blocking first — what it claims, where, and what you did, or the
-  options where it's the maintainer's call — all in that one reply, ahead of
-  *keep replies short*; ask only the most blocking question.
+- **Restate every review finding in your next message**, not just the count:
+  one bullet each (review comment, top-level comment or review body), most
+  blocking first — claim, where, what you did or the maintainer's options —
+  ahead of *keep replies short*; ask only the most blocking question.
 - **Read the Codex verdict, don't infer it**: its PR-body reaction (`issue_read`
   → `reactions`; a thread's `Useful?` bar reads true on any PR it commented on)
   — `eyes` reading, `+1` clean, revoked on push, so a visible one is the visible
@@ -330,13 +314,11 @@ than append; delete one that has stopped biting.
   on — poke. A poke that hangs the same way gets a second an hour later;
   escalate only if that one hangs too, never after one (maintainer, 2026-10-22).
 - **Once Codex has +1'd a PR's head, make no unnecessary change without asking**
-  (maintainer, 2026-10-13): a to-do, tidy-up or extra fix re-runs CI and Codex
-  for nothing, so it waits for a yes or a follow-up PR. A necessary change goes
-  ahead unasked — a rebase for `dirty`, or `behind` where the ruleset requires
-  up to date, a red-CI fix — and so does drive or autopilot, where in effect.
+  (maintainer, 2026-10-13): a tidy-up re-runs CI and Codex for nothing, so it
+  waits for a yes or a follow-up PR. A rebase for `dirty` (or `behind` where
+  required), a red-CI fix, and drive or autopilot steps go ahead unasked.
 - **Skip echo events silently**: a reply you just posted via the GitHub MCP
-  comes back as a webhook event under the same identity — if the body matches,
-  continue without comment.
+  comes back as a webhook event — if the body matches, continue.
 - List **every** open PR on a feature by URL, one per line — the "View PR" chip
   sticks to the first link and hides the rest (anthropics/claude-code#46625).
 - End every reply with the open-PR link (or `.../compare/main...<branch>` until
