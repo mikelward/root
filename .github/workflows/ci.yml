@@ -117,6 +117,14 @@ jobs:
           test -n "$bin"
           sudo "$bin"
 
+      # make test checks what make install would run; as root it also
+      # installs into a temporary prefix and checks the files' owner, group
+      # and mode. Built as the runner user, so root's make has nothing to do.
+      - name: Install as root into a temporary prefix
+        run: |
+          make root
+          sudo sh tests/install_test.sh .
+
   # The setuid fallback for machines without a Rust toolchain. Untested
   # changes here are a security change (AGENTS.md), so this suite is not
   # optional just because the Rust build is primary.
@@ -137,6 +145,11 @@ jobs:
       # in a child process, which needs root.
       - name: Run the logging tests as root
         run: sudo ./legacy/loggingtest
+
+      - name: Install as root into a temporary prefix
+        run: |
+          make -C legacy root
+          sudo sh tests/install_test.sh legacy
 
   # FreeBSD and macOS are platforms SPEC.md supports but no runner here is, so
   # this checks them by cross-compiling on Ubuntu, the way mikelward/mesh does,

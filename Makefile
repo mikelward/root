@@ -9,12 +9,15 @@ all: test root
 
 test:
 	$(CARGO) test --release
+	sh tests/install_test.sh .
 
 root: $(RUST_SOURCES)
 	$(CARGO) build --release
 	cp target/release/root ./root
 
-INSTALL_GROUP?=root
+# Group 0 by number: it's root on Linux, wheel on macOS and the BSDs, and
+# root's own check is for group 0 (SPEC.md), whatever it's called.
+INSTALL_GROUP?=0
 
 install: root
 	install -d $(BINDIR)

@@ -219,9 +219,12 @@ bytes for the log and for `initgroups()`. Argument parsing is hand-rolled to sup
 
 ### Portability notes
 
-- The `install` target accepts an `INSTALL_GROUP` variable (default: `root`)
-  to accommodate systems where group 0 is named `wheel` (BSD, macOS):
-  `make install INSTALL_GROUP=wheel`.
+- The `install` target installs to group 0 by number (`INSTALL_GROUP`,
+  default `0`), so the same command works where group 0 is `root` (Linux)
+  and where it's `wheel` (BSD, macOS). A group named `root` doesn't exist on
+  macOS, so the old default failed there. GNU, BSD and uutils `install` all
+  take a numeric group. `tests/install_test.sh` checks both Makefiles, and
+  CI runs it as root to install into a temporary prefix.
 
 - CI runs the test suites on Linux only. FreeBSD and macOS are covered by
   cross-compiling on Linux: `cargo check` against FreeBSD, and for macOS a
@@ -239,14 +242,10 @@ bytes for the log and for `initgroups()`. Argument parsing is hand-rolled to sup
 The binary must be installed **setuid root** for privilege escalation to work:
 
 ```
-install -o root -g root -m 4755 root /usr/local/bin/root
+install -o root -g 0 -m 4755 root /usr/local/bin/root
 ```
 
-On BSD and macOS, use group `wheel`:
-
-```
-make install INSTALL_GROUP=wheel
-```
+`make install` does this, with group 0 by number on every system.
 
 ### Legacy C build (fallback)
 

@@ -22,6 +22,7 @@ MANPAGE=../root.1
 all: test root
 
 test: loggingtest pathtest argstest
+	sh ../tests/install_test.sh .
 
 loggingtest: loggingtest.o logging.o
 	$(CC) $(LDFLAGS) -o $@ loggingtest.o logging.o
@@ -48,7 +49,9 @@ loggingtest.o: logging.h
 pathtest.o: path.h
 argstest.o: args.h
 
-INSTALL_GROUP?=root
+# Group 0 by number: it's root on Linux, wheel on macOS and the BSDs, and
+# root's own check is for group 0 (SPEC.md), whatever it's called.
+INSTALL_GROUP?=0
 
 install: root
 	install -d $(BINDIR)
