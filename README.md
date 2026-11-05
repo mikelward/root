@@ -8,8 +8,8 @@ complex configuration and doesn't mess with your environment variables.
 
 Installation
 ------------
-To install, just run `make install` as root. On BSD and macOS, where
-group 0 is called `wheel`, run `make install INSTALL_GROUP=wheel`.
+To install, just run `make install` as root. It installs to group 0,
+whatever it's called: `root` on Linux, `wheel` on macOS and the BSDs.
 
 You will require GNU make and a stable Rust toolchain (cargo + rustc).
 
