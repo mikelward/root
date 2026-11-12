@@ -17,6 +17,7 @@ void testescapeplain(void);
 void testescapebackslashesandwhitespace(void);
 void testescapecontrol(void);
 void testescapeinvalidutf8(void);
+void testescapebidiandlineseparators(void);
 void testescapenull(void);
 void testformatescapedbounded(void);
 void testsetloglevel(void);
@@ -28,6 +29,7 @@ int main(int argc, const char *argv[])
     testescapebackslashesandwhitespace();
     testescapecontrol();
     testescapeinvalidutf8();
+    testescapebidiandlineseparators();
     testescapenull();
     testformatescapedbounded();
     testsetloglevel();
@@ -88,6 +90,23 @@ void testescapeinvalidutf8(void)
     checkescape("\xed\xa0\x80", "\\xed\\xa0\\x80");
     /* A sequence cut short by the end of the string. */
     checkescape("\xf0\x9f\x98", "\\xf0\\x9f\\x98");
+}
+
+void testescapebidiandlineseparators(void)
+{
+    printf("Running %s\n", __func__);
+    /* U+202E RIGHT-TO-LEFT OVERRIDE, which shows "txt.exe" as "exe.txt". */
+    checkescape("a\xe2\x80\xaetxt.exe", "a\\xe2\\x80\\xaetxt.exe");
+    /* The other bidi controls: ALM, LRM, RLM, LRE to RLO, LRI to PDI. */
+    checkescape("\xd8\x9c", "\\xd8\\x9c");
+    checkescape("\xe2\x80\x8e\xe2\x80\x8f", "\\xe2\\x80\\x8e\\xe2\\x80\\x8f");
+    checkescape("\xe2\x80\xaa\xe2\x80\xad", "\\xe2\\x80\\xaa\\xe2\\x80\\xad");
+    checkescape("\xe2\x81\xa6\xe2\x81\xa9", "\\xe2\\x81\\xa6\\xe2\\x81\\xa9");
+    /* U+2028 LINE SEPARATOR and U+2029 PARAGRAPH SEPARATOR break lines. */
+    checkescape("a\xe2\x80\xa8" "b\xe2\x80\xa9", "a\\xe2\\x80\\xa8" "b\\xe2\\x80\\xa9");
+    /* Their neighbors pass through: U+200D ZWJ, U+202F, U+2065, U+206A. */
+    checkescape("\xe2\x80\x8d\xe2\x80\xaf", "\xe2\x80\x8d\xe2\x80\xaf");
+    checkescape("\xe2\x81\xa5\xe2\x81\xaa", "\xe2\x81\xa5\xe2\x81\xaa");
 }
 
 void testescapenull(void)

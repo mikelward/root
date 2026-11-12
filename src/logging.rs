@@ -68,9 +68,12 @@ fn caller() -> &'static OsStr {
 /// names can hold anything but NUL, and a newline or terminal escape in
 /// them could forge or hide lines in the audit log. So a backslash becomes
 /// `\\`; newline, carriage return and tab become `\n`, `\r` and `\t`; any
-/// other control character (U+0000 to U+001F, U+007F to U+009F), and any
-/// byte that is not valid UTF-8, becomes `\xNN`, one per byte. All other
-/// valid UTF-8 passes through, so each message stays one unambiguous line.
+/// other control character (U+0000 to U+001F, U+007F to U+009F), bidi
+/// control (U+061C, U+200E, U+200F, U+202A to U+202E, U+2066 to U+2069),
+/// line or paragraph separator (U+2028, U+2029), and any byte that is not
+/// valid UTF-8, becomes `\xNN`, one per byte of its UTF-8. All other valid
+/// UTF-8 passes through, so each message stays one unambiguous line that
+/// reads as it is stored.
 /// The C build's `escape_for_log()` follows the same rules.
 pub fn escape(text: &OsStr) -> String {
     let mut out = String::with_capacity(text.len());
@@ -81,7 +84,7 @@ pub fn escape(text: &OsStr) -> String {
                 '\n' => out.push_str("\\n"),
                 '\r' => out.push_str("\\r"),
                 '\t' => out.push_str("\\t"),
-                c if c.is_control() => {
+                c if c.is_control() || reorders_or_breaks_lines(c) => {
                     for &b in c.encode_utf8(&mut [0; 4]).as_bytes() {
                         push_hex_escape(&mut out, b);
                     }
@@ -94,6 +97,16 @@ pub fn escape(text: &OsStr) -> String {
         }
     }
     out
+}
+
+/// Bidi controls, which reorder how the text around them displays (so
+/// "a\u{202e}txt.exe" shows as "aexe.txt"), and the Unicode line and
+/// paragraph separators, which some viewers break lines at.
+fn reorders_or_breaks_lines(c: char) -> bool {
+    matches!(
+        c,
+        '\u{061c}' | '\u{200e}' | '\u{200f}' | '\u{2028}'..='\u{202e}' | '\u{2066}'..='\u{2069}'
+    )
 }
 
 fn push_hex_escape(out: &mut String, byte: u8) {
@@ -202,6 +215,22 @@ mod tests {
         assert_eq!(esc(b"\xed\xa0\x80"), "\\xed\\xa0\\x80");
         // A sequence cut short by the end of the string.
         assert_eq!(esc(b"\xf0\x9f\x98"), "\\xf0\\x9f\\x98");
+    }
+
+    #[test]
+    fn escape_hex_escapes_bidi_controls_and_line_separators() {
+        // U+202E RIGHT-TO-LEFT OVERRIDE, which shows "txt.exe" as "exe.txt".
+        assert_eq!(esc(b"a\xe2\x80\xaetxt.exe"), "a\\xe2\\x80\\xaetxt.exe");
+        // The other bidi controls: ALM, LRM, RLM, LRE to RLO, LRI to PDI.
+        assert_eq!(esc(b"\xd8\x9c"), "\\xd8\\x9c");
+        assert_eq!(esc(b"\xe2\x80\x8e\xe2\x80\x8f"), "\\xe2\\x80\\x8e\\xe2\\x80\\x8f");
+        assert_eq!(esc(b"\xe2\x80\xaa\xe2\x80\xad"), "\\xe2\\x80\\xaa\\xe2\\x80\\xad");
+        assert_eq!(esc(b"\xe2\x81\xa6\xe2\x81\xa9"), "\\xe2\\x81\\xa6\\xe2\\x81\\xa9");
+        // U+2028 LINE SEPARATOR and U+2029 PARAGRAPH SEPARATOR break lines.
+        assert_eq!(esc(b"a\xe2\x80\xa8b\xe2\x80\xa9"), "a\\xe2\\x80\\xa8b\\xe2\\x80\\xa9");
+        // Their neighbors pass through: U+200D ZWJ, U+202F, U+2065, U+206A.
+        assert_eq!(esc("\u{200d}\u{202f}".as_bytes()), "\u{200d}\u{202f}");
+        assert_eq!(esc("\u{2065}\u{206a}".as_bytes()), "\u{2065}\u{206a}");
     }
 
     #[test]

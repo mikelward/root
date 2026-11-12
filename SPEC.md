@@ -162,15 +162,18 @@ user-controlled content (usernames, command names) is never interpreted as a
 format string.
 
 Outside text in a message (command names, paths, `PATH` entries, option
-strings, user and group names) is escaped, so a newline or terminal escape in
-it cannot forge or hide audit lines, and two different paths never log the
+strings, user and group names) is escaped, so a newline, terminal escape or
+bidi control in it cannot forge, hide or disguise audit lines, and two different paths never log the
 same:
 
 - A backslash becomes `\\`.
 - Newline, carriage return and tab become `\n`, `\r` and `\t`.
-- Any other control character (U+0000 to U+001F, U+007F to U+009F), and any
-  byte that is not valid UTF-8, becomes `\xNN`, one per byte, in lowercase
-  hex.
+- Any other control character (U+0000 to U+001F, U+007F to U+009F), bidi
+  control (U+061C, U+200E, U+200F, U+202A to U+202E, U+2066 to U+2069), line
+  or paragraph separator (U+2028, U+2029), and any byte that is not valid
+  UTF-8, becomes `\xNN`, one per byte of its UTF-8, in lowercase hex. A bidi
+  control would make text display in a different order than it is stored,
+  so `a`, U+202E, `txt.exe` would read as `aexe.txt`.
 - All other valid UTF-8 passes through unchanged.
 
 For example, a command named `a`, newline, `b`, then byte `0xff` is logged as
