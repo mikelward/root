@@ -110,6 +110,18 @@ static size_t utf8_sequence(const unsigned char *s, unsigned long *cp)
     return length;
 }
 
+/*
+ * Whether cp is a bidi control, which reorders how the text around it
+ * displays (so "a" U+202E "txt.exe" shows as "aexe.txt"), or the Unicode
+ * line or paragraph separator, which some viewers break lines at.
+ */
+static int reorders_or_breaks_lines(unsigned long cp)
+{
+    return cp == 0x061C || cp == 0x200E || cp == 0x200F
+        || (cp >= 0x2028 && cp <= 0x202E)
+        || (cp >= 0x2066 && cp <= 0x2069);
+}
+
 static size_t append_hex_escape(char *out, unsigned char byte)
 {
     static const char digits[] = "0123456789abcdef";
@@ -126,9 +138,11 @@ static void escape_into(char *escaped, const char *string);
  * Return a copy of string with outside text made safe for a message: a
  * backslash becomes "\\"; newline, carriage return and tab become "\n",
  * "\r" and "\t"; any other control character (U+0000 to U+001F, U+007F to
- * U+009F), and any byte that is not valid UTF-8, becomes "\xNN", one per
- * byte. All other valid UTF-8 passes through, so each message stays one
- * unambiguous line. The Rust build's logging::escape follows the same rules.
+ * U+009F), bidi control (U+061C, U+200E, U+200F, U+202A to U+202E, U+2066
+ * to U+2069), line or paragraph separator (U+2028, U+2029), and any byte
+ * that is not valid UTF-8, becomes "\xNN", one per byte of its UTF-8. All
+ * other valid UTF-8 passes through, so each message stays one unambiguous
+ * line that reads as it is stored. The Rust build's logging::escape follows the same rules.
  *
  * Returns NULL if string is NULL or memory runs out.
  * Caller must free the returned string.
@@ -179,7 +193,7 @@ static void escape_into(char *escaped, const char *string)
         }
         else if ((seqlen = utf8_sequence(s, &cp)) != 0) {
             /* U+0080 to U+009F are control characters too. */
-            int control = cp <= 0x9F;
+            int control = cp <= 0x9F || reorders_or_breaks_lines(cp);
             for (size_t i = 0; i < seqlen; i++) {
                 if (control) {
                     e += append_hex_escape(escaped + e, s[i]);
