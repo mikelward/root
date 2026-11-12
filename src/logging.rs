@@ -40,7 +40,14 @@ pub fn init(progname: &'static CStr) {
         );
     }
     // Capture the caller's name now, while the real uid is still theirs.
-    caller();
+    let uid = Uid::current();
+    let lookup = crate::user::user_name(uid);
+    let lookup_error = lookup.as_ref().err().copied();
+    CALLER.get_or_init(|| name_or_uid(uid, lookup));
+    if let Some(e) = lookup_error {
+        // The record names the uid instead; this says why.
+        log(LOG_DEBUG, &format!("Cannot look up the name of uid {uid}: {e}"));
+    }
 }
 
 pub fn set_level(level: i32) {
@@ -56,10 +63,20 @@ pub fn level() -> i32 {
 /// `init` captures it before anything else runs, so lines logged after
 /// `setuid(0)` still name the caller rather than root.
 fn caller() -> &'static OsStr {
-    CALLER.get_or_init(|| match crate::user::user_name(Uid::current()) {
-        Ok(Some(name)) => name,
-        _ => OsString::from("Unknown user"),
+    CALLER.get_or_init(|| {
+        let uid = Uid::current();
+        name_or_uid(uid, crate::user::user_name(uid))
     })
+}
+
+/// The name to log for the user with this uid, given the lookup of their
+/// user name: that name, or `uid N` when there is none to find (no passwd
+/// entry, or a lookup that fails), so the record still says who it was.
+fn name_or_uid(uid: Uid, lookup: nix::Result<Option<OsString>>) -> OsString {
+    match lookup {
+        Ok(Some(name)) if !name.is_empty() => name,
+        _ => OsString::from(format!("uid {uid}")),
+    }
 }
 
 /// Text from outside the program, escaped for a message.
@@ -234,6 +251,17 @@ mod tests {
     }
 
     #[test]
+    fn caller_without_a_name_is_logged_by_uid() {
+        // No passwd entry, a failed lookup and an empty name all leave no
+        // name to log, and the record must still say who it was.
+        let uid = Uid::from_raw(12345);
+        assert_eq!(name_or_uid(uid, Ok(None)), "uid 12345");
+        assert_eq!(name_or_uid(uid, Err(nix::errno::Errno::EIO)), "uid 12345");
+        assert_eq!(name_or_uid(uid, Ok(Some(OsString::new()))), "uid 12345");
+        assert_eq!(name_or_uid(uid, Ok(Some(OsString::from("sally")))), "sally");
+    }
+
+    #[test]
     fn level_default_and_set() {
         let original = level();
         set_level(LOG_ERR);
@@ -296,10 +324,7 @@ mod tests {
         if std::env::var_os(CALLER_CHILD_ENV).is_none() {
             return;
         }
-        let name_of = |uid: Uid| match crate::user::user_name(uid) {
-            Ok(Some(name)) => name,
-            _ => OsString::from("Unknown user"),
-        };
+        let name_of = |uid: Uid| name_or_uid(uid, crate::user::user_name(uid));
         let caller_uid = Uid::from_raw(65534);
         let expected = name_of(caller_uid);
         assert_ne!(expected, name_of(Uid::from_raw(0)));

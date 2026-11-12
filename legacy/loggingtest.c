@@ -21,6 +21,7 @@ void testescapebidiandlineseparators(void);
 void testescapenull(void);
 void testformatescapedbounded(void);
 void testsetloglevel(void);
+void testusernamefallsbacktouid(void);
 void testusernamesurvivessetuid(void);
 
 int main(int argc, const char *argv[])
@@ -33,6 +34,7 @@ int main(int argc, const char *argv[])
     testescapenull();
     testformatescapedbounded();
     testsetloglevel();
+    testusernamefallsbacktouid();
     testusernamesurvivessetuid();
 
     return 0;
@@ -166,6 +168,49 @@ void testsetloglevel(void)
  * root. Changing uids is irreversible and needs root, so it happens in a
  * child process; CI reruns this suite under sudo so it does not skip there.
  */
+/*
+ * A caller with no user name to find is still named in the record, by uid.
+ */
+void testusernamefallsbacktouid(void)
+{
+    printf("Running %s\n", __func__);
+
+    /* Any uid with no passwd entry will do. */
+    uid_t unnamed = 2000000000;
+    while (getpwuid(unnamed) != NULL) {
+        unnamed++;
+    }
+    char expected[64];
+    snprintf(expected, sizeof expected, "uid %lu", (unsigned long)unnamed);
+    assert(strcmp(get_username(unnamed), expected) == 0);
+
+    /* A uid with an entry keeps its name. */
+    struct passwd *root = getpwuid(0);
+    assert(root != NULL);
+    char *name = strdup(root->pw_name);
+    assert(name != NULL);
+    assert(strcmp(get_username(0), name) == 0);
+    free(name);
+
+    /* And the name initlog captures for the record is the same "uid N". */
+    if (geteuid() != 0) {
+        printf("skipping the captured name: needs root to change uids in a child\n");
+        return;
+    }
+    pid_t pid = fork();
+    assert(pid != -1);
+    if (pid == 0) {
+        if (setreuid(unnamed, 0) != 0) {
+            _exit(2);
+        }
+        initlog("roottest");
+        _exit(strcmp(log_username(), expected) == 0 ? 0 : 1);
+    }
+    int status;
+    assert(waitpid(pid, &status, 0) == pid);
+    assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+}
+
 void testusernamesurvivessetuid(void)
 {
     printf("Running %s\n", __func__);
