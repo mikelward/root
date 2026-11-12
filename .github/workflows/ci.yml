@@ -125,6 +125,10 @@ jobs:
           make root
           sudo sh tests/install_test.sh .
 
+      # Running a command needs root, so this skips under make test.
+      - name: Run a command with the standard descriptors closed
+        run: sudo sh tests/std_fds_test.sh target/release/root
+
   # The setuid fallback for machines without a Rust toolchain. Untested
   # changes here are a security change (AGENTS.md), so this suite is not
   # optional just because the Rust build is primary.
@@ -150,6 +154,9 @@ jobs:
         run: |
           make -C legacy root
           sudo sh tests/install_test.sh legacy
+
+      - name: Run a command with the standard descriptors closed
+        run: sudo sh tests/std_fds_test.sh legacy/root
 
   # FreeBSD and macOS are platforms SPEC.md supports but no runner here is, so
   # this checks them by cross-compiling on Ubuntu, the way mikelward/mesh does,
@@ -200,7 +207,7 @@ jobs:
         run: cargo zigbuild --all-targets --target aarch64-apple-darwin
 
       - name: Build the C fallback for macOS
-        run: make -C legacy CC="python3 -m ziglang cc -target aarch64-macos" root loggingtest.o pathtest.o argstest.o
+        run: make -C legacy CC="python3 -m ziglang cc -target aarch64-macos" root loggingtest.o pathtest.o argstest.o fdstest.o
 
   # The one check the ruleset should require. Always runs, always reports —
   # green only when the heavy jobs succeeded, or when they were skipped and

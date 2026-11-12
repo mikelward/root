@@ -29,37 +29,44 @@ Option parsing uses POSIX `+` prefix to stop at the first non-option argument
 
 ## Execution Flow
 
-1. **Initialize logging** - Open syslog with facility `LOG_AUTHPRIV` and flags
+1. **Open closed standard descriptors** - If stdin, stdout or stderr is
+   closed, open `/dev/null` on it, so no file or socket opened later (the
+   syslog socket, say) takes its number and receives `root`'s messages or the
+   command's output. The Rust runtime does this before `main()`; the C build
+   does it first thing in `main()` and exits with `SYSTEM_ERROR` if it
+   cannot.
+
+2. **Initialize logging** - Open syslog with facility `LOG_AUTHPRIV` and flags
    `LOG_CONS | LOG_PID`.
 
-2. **Parse arguments** - Process `-H`/`--nohome`/`--home` flags via
+3. **Parse arguments** - Process `-H`/`--nohome`/`--home` flags via
    `getopt_long()`. The remaining arguments are the command and its arguments.
    An empty `argv` (`argc == 0`, which `execve()` permits on some kernels) has
    no program name to skip and is treated as no command, never as a reason to
    read past `argv`'s terminating `NULL` into the environment.
 
-3. **Check permissions** - Verify the calling user is a member of group 0 (see
+4. **Check permissions** - Verify the calling user is a member of group 0 (see
    [Permission Model](#permission-model)). This happens *before* command
    resolution: resolution runs with the setuid binary's elevated privileges
    (`realpath()` traverses with `euid=0`), so resolving first would let
    unauthorized users probe for the existence of files in directories they
    cannot read.
 
-4. **Resolve command** - Determine the absolute path of the command to execute
+5. **Resolve command** - Determine the absolute path of the command to execute
    (see [Command Resolution](#command-resolution) below).
 
-5. **Log the action** - Log the command being run (at `LOG_INFO` level) to
+6. **Log the action** - Log the command being run (at `LOG_INFO` level) to
    syslog. This happens *before* becoming root so the log includes the calling
    user's identity.
 
-6. **Become root:**
+7. **Become root:**
    - Optionally set `HOME` to root's home directory (default: yes).
    - Set GID to root's primary group via `setgid()`.
    - Initialize supplementary groups via `initgroups()`.
    - Set UID to 0 via `setuid()`. The program must be installed setuid root
      for this to work (the `setuid()` call promotes `euid=0` to `ruid=0`).
 
-7. **Execute the command** - Call `execv()` (never `execvp()`) with the
+8. **Execute the command** - Call `execv()` (never `execvp()`) with the
    resolved absolute path. The original `argv[0]` (the command name as typed)
    is preserved. On success, `execv` does not return.
 
@@ -286,8 +293,10 @@ alias root='root '   # trailing space enables alias expansion
 | `src/logging.rs` | Syslog and stderr logging |
 | `src/exit_code.rs` | Exit-code constants |
 | `tests/cli.rs` | Integration tests for the CLI surface |
+| `tests/std_fds_test.sh` | Runs a command through either build with stdin, stdout and stderr closed (as root only) |
 | `root.1` | Man page (shared by both builds) |
 | `legacy/` | C99 implementation, maintained as a fallback for toolchain-free machines; must match this spec |
+| `legacy/fds.c` | Opens `/dev/null` on closed standard descriptors, as the Rust runtime does |
 | `legacy/Makefile` | Builds and installs the C fallback (C99 compiler + GNU make only) |
 
 ## Design Principles

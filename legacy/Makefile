@@ -21,8 +21,9 @@ MANPAGE=../root.1
 
 all: test root
 
-test: loggingtest pathtest argstest
+test: loggingtest pathtest argstest fdstest root
 	sh ../tests/install_test.sh .
+	sh ../tests/std_fds_test.sh ./root
 
 loggingtest: loggingtest.o logging.o
 	$(CC) $(LDFLAGS) -o $@ loggingtest.o logging.o
@@ -36,18 +37,24 @@ argstest: argstest.o args.o
 	$(CC) $(LDFLAGS) -o $@ argstest.o args.o
 	./$@
 
-root: root.o user.o path.o logging.o args.o
-	$(CC) $(LDFLAGS) -o $@ root.o user.o path.o logging.o args.o
+fdstest: fdstest.o fds.o
+	$(CC) $(LDFLAGS) -o $@ fdstest.o fds.o
+	./$@
+
+root: root.o user.o path.o logging.o args.o fds.o
+	$(CC) $(LDFLAGS) -o $@ root.o user.o path.o logging.o args.o fds.o
 
 # Header dependencies
-root.o: root.h logging.h path.h user.h args.h
+root.o: root.h logging.h path.h user.h args.h fds.h
 user.o: user.h root.h logging.h
 path.o: path.h root.h logging.h
 logging.o: logging.h
 args.o: args.h
+fds.o: fds.h
 loggingtest.o: logging.h
 pathtest.o: path.h
 argstest.o: args.h
+fdstest.o: fds.h
 
 # Group 0 by number: it's root on Linux, wheel on macOS and the BSDs, and
 # root's own check is for group 0 (SPEC.md), whatever it's called.
@@ -65,6 +72,6 @@ clean:
 	-rm -f *.o
 
 clobber: clean
-	-rm -f root loggingtest pathtest argstest
+	-rm -f root loggingtest pathtest argstest fdstest
 
 .PHONY: all test install clean clobber

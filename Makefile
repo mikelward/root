@@ -10,6 +10,7 @@ all: test root
 test:
 	$(CARGO) test --release
 	sh tests/install_test.sh .
+	sh tests/std_fds_test.sh target/release/root
 
 root: $(RUST_SOURCES)
 	$(CARGO) build --release

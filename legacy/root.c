@@ -19,6 +19,7 @@
 #include <unistd.h>
 
 #include "args.h"
+#include "fds.h"
 #include "logging.h"
 #include "path.h"
 #include "root.h"
@@ -47,7 +48,19 @@ int main(int argc, const char *const *argv)
     char *absolute_command = NULL;
     const char *const *args = NULL;
 
+    /*
+     * Before anything opens a file or socket, so none of them takes the
+     * number of a standard descriptor the caller closed.
+     */
+    int fds_error = ensure_standard_fds_open() == 0 ? 0 : errno;
+
     setup_logging();
+
+    if (fds_error != 0) {
+        error("Cannot open /dev/null on a closed standard descriptor: %s",
+              strerror(fds_error));
+        exit(ROOT_SYSTEM_ERROR);
+    }
 
     process_args(argc, argv, &args);
 
