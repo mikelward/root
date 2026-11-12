@@ -24,6 +24,7 @@ all: test root
 test: loggingtest pathtest argstest fdstest root
 	sh ../tests/install_test.sh .
 	sh ../tests/std_fds_test.sh ./root
+	sh ../tests/setuid_test.sh ./root
 
 loggingtest: loggingtest.o logging.o
 	$(CC) $(LDFLAGS) -o $@ loggingtest.o logging.o

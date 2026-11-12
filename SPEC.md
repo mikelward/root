@@ -68,7 +68,8 @@ Option parsing uses POSIX `+` prefix to stop at the first non-option argument
 
 8. **Execute the command** - Call `execv()` (never `execvp()`) with the
    resolved absolute path. The original `argv[0]` (the command name as typed)
-   is preserved. On success, `execv` does not return.
+   is preserved. On success, `execv` does not return. The command starts with
+   the default `SIGPIPE` action (see [Signals](#signals)).
 
 ## Command Resolution
 
@@ -144,6 +145,17 @@ If the check fails:
 - **All other variables**: Not modified. The calling user's environment is
   preserved.
 
+### Signals
+
+Signal actions and the signal mask pass to the command unchanged, with one
+exception in the Rust build: its runtime ignores `SIGPIPE` before `main()`,
+and an ignored signal stays ignored across `execv()`, so `root` sets
+`SIGPIPE` back to its default action just before `execv()`. Otherwise
+`root yes | head` would leave `yes` reporting write errors instead of ending
+quietly. The runtime keeps no record of the action `root` was started with,
+so a caller that ignores `SIGPIPE` itself gets the default in the command
+under the Rust build, and its own setting under the C build.
+
 ## Logging
 
 ### Syslog
@@ -217,7 +229,8 @@ and runs on:
 - **FreeBSD** / **OpenBSD** / **NetBSD**
 - **macOS** (Darwin)
 
-The Rust implementation depends on `libc` (for `openlog`/`syslog`) and `nix`
+The Rust implementation depends on `libc` (for `openlog`/`syslog` and
+`signal`) and `nix`
 (for `setuid`, `setgid`, `getgroups`, `initgroups`, `access`, `execv`, and the
 `User` lookup of the target's group and home directory). `nix` omits
 `getgroups` and `initgroups` on Apple targets, so on macOS `src/user.rs` calls
@@ -297,6 +310,7 @@ alias root='root '   # trailing space enables alias expansion
 | `src/exit_code.rs` | Exit-code constants |
 | `tests/cli.rs` | Integration tests for the CLI surface |
 | `tests/std_fds_test.sh` | Runs a command through either build with stdin, stdout and stderr closed (as root only) |
+| `tests/setuid_test.sh` | Installs either build setuid in a temporary directory and runs it as an unprivileged caller (as root on Linux only) |
 | `root.1` | Man page (shared by both builds) |
 | `legacy/` | C99 implementation, maintained as a fallback for toolchain-free machines; must match this spec |
 | `legacy/fds.c` | Opens `/dev/null` on closed standard descriptors, as the Rust runtime does |
@@ -318,9 +332,9 @@ alias root='root '   # trailing space enables alias expansion
 
 5. **Minimal attack surface** - Small Rust codebase. `unsafe` is confined to
    the syslog FFI calls (`openlog`/`syslog`), the `getpwuid_r`/`getgrgid_r`
-   name lookups, and, on Apple targets only, the `getgroups`/`initgroups`
-   calls `nix` does not wrap there; all other system calls go through safe
-   `nix` wrappers.
+   name lookups, the `signal` call that restores `SIGPIPE`, and, on Apple
+   targets only, the `getgroups`/`initgroups` calls `nix` does not wrap
+   there; all other system calls go through safe `nix` wrappers.
 
 6. **Portability** - Uses POSIX APIs via `nix` and avoids OS-specific
    extensions so the code builds and runs on Linux, BSD, and macOS.

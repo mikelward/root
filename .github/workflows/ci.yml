@@ -129,6 +129,11 @@ jobs:
       - name: Run a command with the standard descriptors closed
         run: sudo sh tests/std_fds_test.sh target/release/root
 
+      # Only a setuid copy can become root for another user, so this is the
+      # one place the permission check and the switch to root run for real.
+      - name: Run a setuid copy as an unprivileged user
+        run: sudo sh tests/setuid_test.sh target/release/root
+
   # The setuid fallback for machines without a Rust toolchain. Untested
   # changes here are a security change (AGENTS.md), so this suite is not
   # optional just because the Rust build is primary.
@@ -157,6 +162,9 @@ jobs:
 
       - name: Run a command with the standard descriptors closed
         run: sudo sh tests/std_fds_test.sh legacy/root
+
+      - name: Run a setuid copy as an unprivileged user
+        run: sudo sh tests/setuid_test.sh legacy/root
 
   # FreeBSD and macOS are platforms SPEC.md supports but no runner here is, so
   # this checks them by cross-compiling on Ubuntu, the way mikelward/mesh does,
