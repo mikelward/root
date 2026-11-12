@@ -183,6 +183,11 @@ fn exec_command(absolute: &Path, argv: &[OsString]) {
         }
     };
 
+    if let Err(e) = restore_default_sigpipe() {
+        error!("Cannot restore the default SIGPIPE action: {e}");
+        std::process::exit(exit_code::SYSTEM_ERROR);
+    }
+
     match execv(&c_path, &c_args) {
         Ok(_) => unreachable!("execv returned Ok"),
         Err(e) => {
@@ -190,6 +195,23 @@ fn exec_command(absolute: &Path, argv: &[OsString]) {
             std::process::exit(exit_code::ERROR_EXECUTING_COMMAND);
         }
     }
+}
+
+/// Give the command the default `SIGPIPE` action.
+///
+/// Rust's runtime ignores `SIGPIPE` before `main()`, and an ignored signal
+/// stays ignored across `execv()`. Left alone, `root yes | head` would never
+/// end `yes` quietly: it would run on to report a write error. The runtime
+/// keeps no record of the action the caller started us with, so this cannot
+/// hand that back; it sets the default, as `std::process::Command` does for
+/// its children.
+#[allow(unsafe_code)] // libc::signal FFI — constant signal, default action, no handler
+fn restore_default_sigpipe() -> std::io::Result<()> {
+    // SAFETY: SIG_DFL installs no handler, so no Rust code runs on a signal.
+    if unsafe { libc::signal(libc::SIGPIPE, libc::SIG_DFL) } == libc::SIG_ERR {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(())
 }
 
 fn usage() {
