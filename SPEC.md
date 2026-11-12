@@ -67,6 +67,11 @@ Option parsing uses POSIX `+` prefix to stop at the first non-option argument
    - Initialize supplementary groups via `initgroups()`.
    - Set UID to 0 via `setuid()`. The program must be installed setuid root
      for this to work (the `setuid()` call promotes `euid=0` to `ruid=0`).
+   - Check that the real and effective UIDs are now both 0, and exit with
+     `SYSTEM_ERROR` if not. Without the privilege to change user IDs (Linux's
+     `CAP_SETUID`, which a container can withhold), `setuid(0)` succeeds but
+     changes only the effective UID, and the command would run with the
+     caller's real UID.
 
 8. **Execute the command** - Call `execv()` (never `execvp()`) with the
    resolved absolute path. The original `argv[0]` (the command name as typed)

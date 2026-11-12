@@ -3,7 +3,7 @@ use std::os::unix::ffi::OsStrExt;
 
 #[cfg(not(target_vendor = "apple"))]
 use nix::unistd::{getgroups, initgroups};
-use nix::unistd::{getgid, setgid, setuid, Gid, Uid, User};
+use nix::unistd::{geteuid, getgid, getuid, setgid, setuid, Gid, Uid, User};
 
 #[cfg(target_vendor = "apple")]
 use self::libc_groups::{getgroups, initgroups};
@@ -302,15 +302,26 @@ pub fn set_home_dir(uid: u32) -> bool {
 
 /// Become the target user via `setuid`.
 ///
-/// Only uid 0 is supported. Exits on `setuid` failure.
+/// Only uid 0 is supported. Exits if `setuid` fails or leaves the real or
+/// effective uid unchanged.
 pub fn become_user(uid: u32) -> bool {
     if uid != 0 {
         error!("Becoming non-root user has not been tested");
         return false;
     }
 
-    if let Err(e) = setuid(Uid::from_raw(uid)) {
+    let target = Uid::from_raw(uid);
+    if let Err(e) = setuid(target) {
         error!("Cannot setuid {uid}: {e}");
+        std::process::exit(exit_code::SYSTEM_ERROR);
+    }
+    // Without the privilege to change user IDs (Linux's CAP_SETUID, which a
+    // container can withhold), setuid(0) from a setuid-root program succeeds
+    // but changes only the effective uid. The command would then run with the
+    // caller's real uid, and a shell would drop back to it, so check.
+    let (real, effective) = (getuid(), geteuid());
+    if real != target || effective != target {
+        error!("Cannot setuid {uid}: real user ID is {real}, effective user ID is {effective}");
         std::process::exit(exit_code::SYSTEM_ERROR);
     }
     true
