@@ -32,6 +32,11 @@ void writescreen(int priority, const char *format, va_list ap);
  */
 void print(const char *format, ...);
 
+/*
+ * The name to log for uid: the user's name, or "uid N" if none can be found.
+ * Sets errno to the lookup's error, or 0 if there was none. Good until the
+ * next call.
+ */
 const char *get_username(uid_t uid);
 
 /*

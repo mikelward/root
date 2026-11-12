@@ -182,7 +182,10 @@ All log messages are sent to syslog with facility `LOG_AUTHPRIV`:
 
 The calling user's username is included in syslog messages. It is looked up
 once, when logging starts, so messages logged after becoming root (an
-`execv()` failure, say) still name the caller rather than `root`. Messages are
+`execv()` failure, say) still name the caller rather than `root`. A caller
+with no user name to find (a uid with no passwd entry, as in a container, or
+a lookup that fails because a directory service is down) is logged as
+`uid N`, with their real uid, so every record says who ran it. Messages are
 passed to `syslog()` as an argument to a constant `"%s"` format string, so
 user-controlled content (usernames, command names) is never interpreted as a
 format string.

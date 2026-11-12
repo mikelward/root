@@ -36,9 +36,16 @@ void initlog(const char *name)
      * messages logged after setuid(0) still name them. Copy it, because the
      * next getpwuid() overwrites the buffer it returns.
      */
-    g_username = strdup(get_username(getuid()));
+    const char *username = get_username(getuid());
+    int lookup_error = errno;
+    g_username = strdup(username);
     if (g_username == NULL) {
         fprintf(stderr, "root: Cannot allocate memory for user name\n");
+    }
+    else if (lookup_error != 0) {
+        /* The record names the uid instead; this says why. */
+        debug("Cannot look up the name of uid %lu: %s",
+              (unsigned long)getuid(), strerror(lookup_error));
     }
 }
 
@@ -360,13 +367,28 @@ void print(const char *format, ...)
     va_end(ap);
 }
 
+/*
+ * The name to log for uid: the user's name, or "uid N" when there is none to
+ * find (no passwd entry, or a lookup that fails), so the record still says
+ * who it was. Sets errno to 0 if it found a name, and otherwise to the
+ * lookup's error, or 0 if there was just no entry. The result is only good
+ * until the next call.
+ */
 const char *get_username(uid_t uid)
 {
+    /* Room for "uid " and any 64-bit number. */
+    static char unnamed[32];
+
+    errno = 0;
     struct passwd *ppw = getpwuid(uid);
-    if (ppw == NULL) {
-        return "Unknown user";
+    if (ppw == NULL || ppw->pw_name == NULL || ppw->pw_name[0] == '\0') {
+        int lookup_error = ppw == NULL ? errno : 0;
+        snprintf(unnamed, sizeof unnamed, "uid %lu", (unsigned long)uid);
+        errno = lookup_error;
+        return unnamed;
     }
 
+    errno = 0;
     return ppw->pw_name;
 }
 
