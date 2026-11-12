@@ -118,7 +118,7 @@ int setup_groups(uid_t uid)
 /*
  * set the $HOME environment variable to the target uid's home directory
  *
- * returns 1 (true) on success, 0 (false) on setenv failure
+ * returns 1 (true) on success, 0 (false) on unsetenv or setenv failure
  * calls exit() if getpwuid fails (unrecoverable system error)
  */
 int set_home_dir(uid_t uid)
@@ -136,6 +136,14 @@ int set_home_dir(uid_t uid)
         exit(ROOT_SYSTEM_ERROR);
     }
 
+    /*
+     * The environment a caller hands us can hold HOME more than once.
+     * setenv() replaces only the first, and a shell reads the last, so the
+     * command would still see the caller's. unsetenv() removes every copy.
+     */
+    if (unsetenv("HOME") != 0) {
+        return 0;
+    }
     return setenv("HOME", ps->pw_dir, 1) == 0;
 }
 

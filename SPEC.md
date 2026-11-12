@@ -60,7 +60,9 @@ Option parsing uses POSIX `+` prefix to stop at the first non-option argument
    user's identity.
 
 7. **Become root:**
-   - Optionally set `HOME` to root's home directory (default: yes).
+   - Optionally set `HOME` to root's home directory (default: yes), removing
+     every `HOME` already in the environment first (see
+     [Environment Handling](#environment-handling)).
    - Set GID to root's primary group via `setgid()`.
    - Initialize supplementary groups via `initgroups()`.
    - Set UID to 0 via `setuid()`. The program must be installed setuid root
@@ -141,6 +143,9 @@ If the check fails:
 ## Environment Handling
 
 - **`HOME`**: Set to root's home directory by default. Suppressed with `-H`.
+  An environment can hold `HOME` more than once; `setenv()` replaces only the
+  first copy and a shell reads the last, so every copy is removed
+  (`unsetenv()`) before it is set, and the command sees root's `HOME` once.
 - **`PATH`**: Not modified (unlike `sudo`).
 - **All other variables**: Not modified. The calling user's environment is
   preserved.
