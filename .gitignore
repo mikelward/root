@@ -5,3 +5,4 @@ legacy/root
 legacy/loggingtest
 legacy/pathtest
 legacy/argstest
+legacy/fdstest
