@@ -154,6 +154,10 @@ If the check fails:
 - **`PATH`**: Not modified (unlike `sudo`).
 - **All other variables**: Not modified. The calling user's environment is
   preserved.
+- **Variables the system removes**: Before any setuid program starts, the
+  dynamic loader removes the variables it considers unsafe for one. glibc
+  removes `LD_LIBRARY_PATH`, `LD_PRELOAD`, `TMPDIR` and others. `root` never
+  sees them, so the command doesn't either.
 
 ### Signals
 
