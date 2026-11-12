@@ -116,6 +116,18 @@ you should add
 .P
 .RE
 to your shell configuration file.
+.SH ENVIRONMENT
+The command runs in the calling user's environment, apart from
+.B HOME
+(see
+.BR \-H ).
+.P
+Before any setuid program starts, the system removes the variables it
+considers unsafe for one, such as
+.B LD_LIBRARY_PATH
+and
+.BR LD_PRELOAD ,
+so the command does not see them.
 .SH "EXIT STATUS"
 If
 .IR command
