@@ -97,6 +97,18 @@ else
     echo "setuid_test: not checking SIGPIPE: it is ignored here" >&2
 fi
 
+# Without CAP_SETUID, setuid(0) succeeds but leaves the real uid the
+# caller's. The command must not run half-privileged.
+if setpriv --bounding-set -setuid true 2>/dev/null; then
+    out=$(as_member --bounding-set -setuid "$root" "$id" -ru 2>/dev/null)
+    status=$?
+    if test "$status" -ne 124 || test -n "$out"; then
+        fail "without CAP_SETUID, got status $status and ran id as \"$out\", not 124 and no command"
+    fi
+else
+    echo "setuid_test: not checking a missing CAP_SETUID: cannot drop it here" >&2
+fi
+
 if test "$failed" -ne 0; then
     exit 1
 fi

@@ -153,7 +153,8 @@ int set_home_dir(uid_t uid)
  * currently the only supported user is root (uid=0)
  *
  * returns 1 (true) on success, 0 (false) if uid != 0
- * calls exit() if setuid fails (unrecoverable system error)
+ * calls exit() if setuid fails, or leaves the real or effective uid
+ * unchanged (unrecoverable system error)
  */
 int become_user(uid_t uid)
 {
@@ -173,6 +174,18 @@ int become_user(uid_t uid)
     errno = 0;
     if (setuid(uid) == -1) {
         error("Cannot setuid %lu: %s", (unsigned long)uid, strerror(errno));
+        exit(ROOT_SYSTEM_ERROR);
+    }
+
+    /*
+     * Without the privilege to change user IDs (Linux's CAP_SETUID, which a
+     * container can withhold), setuid(0) from a setuid-root program succeeds
+     * but changes only the effective uid. The command would then run with
+     * the caller's real uid, and a shell would drop back to it, so check.
+     */
+    if (getuid() != uid || geteuid() != uid) {
+        error("Cannot setuid %lu: real user ID is %lu, effective user ID is %lu",
+              (unsigned long)uid, (unsigned long)getuid(), (unsigned long)geteuid());
         exit(ROOT_SYSTEM_ERROR);
     }
     return 1;
