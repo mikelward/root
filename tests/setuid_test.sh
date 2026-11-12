@@ -66,6 +66,26 @@ test "$out" = "$home" || fail "HOME was \"$out\", not \"$home\""
 out=$(HOME=/nonexistent as_member "$root" -H /bin/sh -c 'echo "$HOME"')
 test "$out" = /nonexistent || fail "with -H, HOME was \"$out\", not \"/nonexistent\""
 
+# An environment can hold HOME twice. No shell or env passes one on, so
+# Python calls execve() itself. The command must see root's HOME, once.
+# The caller runs Python, and root's may sit where the caller cannot reach.
+if as_member python3 -c 'import ctypes' 2>/dev/null; then
+    out=$(as_member python3 -c '
+import ctypes, sys
+
+def strings(*items):
+    return (ctypes.c_char_p * (len(items) + 1))(*[i.encode() for i in items], None)
+
+ctypes.CDLL(None).execve(sys.argv[1].encode(),
+                         strings("root", "/usr/bin/env"),
+                         strings("HOME=/first", "HOME=/second"))
+sys.exit("execve failed")
+' "$root" | grep '^HOME=')
+    test "$out" = "HOME=$home" || fail "with HOME set twice, the command saw \"$(echo $out)\", not \"HOME=$home\""
+else
+    echo "setuid_test: not checking a duplicate HOME: needs a python3 the caller can run" >&2
+fi
+
 # The command gets the default SIGPIPE action, so a closed pipe ends it. An
 # ignored SIGPIPE is inherited, so only check where this script has the
 # default itself.

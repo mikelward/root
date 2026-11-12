@@ -289,7 +289,12 @@ pub fn setup_groups(uid: u32) {
 /// Exits if `getpwuid` fails. Returns `false` if `setenv` fails.
 pub fn set_home_dir(uid: u32) -> bool {
     let user = target_user(uid);
-    // `set_var` is safe in a single-threaded program; main has not spawned threads.
+    // The environment a caller hands us can hold `HOME` more than once.
+    // Setting it replaces only the first, and a shell reads the last, so the
+    // command would still see the caller's. Unsetting removes every copy.
+    // `remove_var` and `set_var` are safe in a single-threaded program; main
+    // has not spawned threads.
+    std::env::remove_var("HOME");
     std::env::set_var("HOME", &user.dir);
     debug!("Set HOME to {}", logging::escape(user.dir.as_os_str()));
     true
