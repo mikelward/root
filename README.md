@@ -13,6 +13,9 @@ whatever it's called: `root` on Linux, `wheel` on macOS and the BSDs.
 
 You will require GNU make and a stable Rust toolchain (cargo + rustc).
 
+`make` builds `root` without the paths of your checkout or your cargo
+registry in it, so the binary doesn't reveal your home directory.
+
 Note that cargo and rustc are only needed to *build* `root`. The resulting
 binary has no Rust runtime dependency, so the usual approach for a machine
 without a toolchain is to build `root` once elsewhere and copy the binary
