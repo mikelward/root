@@ -1,0 +1,109 @@
+#!/bin/sh
+#
+# Runs cargo with the build machine's paths remapped out of the binary:
+# the cargo registry under the builder's home directory, and the checkout
+# (the current directory). Cargo's own trim-paths would do this, but it
+# isn't stable yet.
+#
+# The remappings go in CARGO_ENCODED_RUSTFLAGS, whose arguments are
+# separated by 0x1f, so a path with a space in it stays one argument.
+# That variable replaces every other source of compiler flags, so:
+#
+# - Flags the caller set in RUSTFLAGS or CARGO_ENCODED_RUSTFLAGS are kept
+#   in it; those already outrank cargo's config.
+# - If neither is set but cargo's config sets rustflags (in a
+#   .cargo/config file here or above, in CARGO_HOME, or in a
+#   CARGO_BUILD_RUSTFLAGS or CARGO_TARGET_*_RUSTFLAGS variable), adding
+#   the variable would drop them, so this leaves the build alone and warns
+#   that the paths stay in the binary.
+#
+# Usage: tools/cargo-remap CARGO ARGS...
+
+cargo_home=${CARGO_HOME:-$HOME/.cargo}
+here=$(pwd)
+
+# Prints path $1 with "." and ".." steps resolved lexically, as a string.
+normalize() {
+    out=
+    rest=$1/
+    while test -n "$rest"; do
+        part=${rest%%/*}
+        rest=${rest#*/}
+        case $part in
+            '' | .) ;;
+            ..) out=${out%/*} ;;
+            *) out=$out/$part ;;
+        esac
+    done
+    printf '%s\n' "${out:-/}"
+}
+
+# Succeeds if cargo's config, rather than the environment, sets rustflags.
+config_sets_rustflags() {
+    if env | grep -q -E '^CARGO_(BUILD|TARGET_[A-Z0-9_]+)_RUSTFLAGS='; then
+        return 0
+    fi
+    dir=$here
+    while :; do
+        for file in "$dir/.cargo/config" "$dir/.cargo/config.toml"; do
+            if grep -q -s rustflags "$file"; then
+                return 0
+            fi
+        done
+        test "$dir" = / && break
+        dir=$(dirname "$dir")
+    done
+    for file in "$cargo_home/config" "$cargo_home/config.toml"; do
+        if grep -q -s rustflags "$file"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+if test -z "${CARGO_ENCODED_RUSTFLAGS+set}${RUSTFLAGS+set}" && config_sets_rustflags; then
+    echo "cargo-remap: cargo's config sets rustflags, so the build's paths stay in the binary" >&2
+    exec "$@"
+fi
+
+# Cargo joins a relative CARGO_HOME to the directory it runs in; some
+# versions then resolve its ".." steps and some don't, so remap both forms.
+case $cargo_home in
+    /*) homes=$cargo_home ;;
+    *) homes="$here/$cargo_home
+$(normalize "$here/$cargo_home")" ;;
+esac
+
+# rustc applies the last remapping that matches, so they go shortest
+# prefix first: a longer one wins when one directory sits under another.
+remaps=$(
+    {
+        printf '%s\n' "$homes" | while IFS= read -r home; do
+            printf '%s\t--remap-path-prefix=%s=/cargo\n' "${#home}" "$home"
+        done
+        printf '%s\t--remap-path-prefix=%s=.\n' "${#here}" "$here"
+    } | sort -n -k1,1 | cut -f2-
+)
+
+sep=$(printf '\037')
+if test -n "${CARGO_ENCODED_RUSTFLAGS+set}"; then
+    flags=$CARGO_ENCODED_RUSTFLAGS
+else
+    # RUSTFLAGS is split on whitespace, as cargo splits it.
+    flags=
+    set -f
+    for flag in ${RUSTFLAGS-}; do
+        flags=${flags:+$flags$sep}$flag
+    done
+    set +f
+fi
+while IFS= read -r remap; do
+    flags=${flags:+$flags$sep}$remap
+done <<EOF_REMAPS
+$remaps
+EOF_REMAPS
+
+CARGO_ENCODED_RUSTFLAGS=$flags
+export CARGO_ENCODED_RUSTFLAGS
+unset RUSTFLAGS
+exec "$@"
